@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Network Peers - S256 Block Explorer</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" />
+    <style>
+      .peers-container {
+        max-width: 1400px;
+        margin: 100px auto 2rem;
+        padding: 0 1rem;
+      }
+
+      .peers-header {
+        margin-bottom: 2rem;
+      }
+
+      .peers-header h1 {
+        color: var(--text);
+        margin-bottom: 0.5rem;
+      }
+
+      .peers-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+
+      .stat-box {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+      }
+
+      .stat-box-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary);
+        margin-bottom: 0.5rem;
+      }
+
+      .stat-box-label {
+        color: var(--text-light);
+        font-size: 0.9rem;
+      }
+
+      .peers-table-container {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+
+      .peers-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .peers-table thead {
+        background: linear-gradient(135deg, var(--primary) 0%, #00d4ff 100%);
+        color: white;
+      }
+
+      .peers-table th {
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+
+      .peers-table tbody tr {
+        border-bottom: 1px solid var(--border);
+        transition: background 0.2s ease;
+      }
+
+      .peers-table tbody tr:hover {
+        background: rgba(163, 0, 255, 0.05);
+      }
+
+      .peers-table td {
+        padding: 1rem;
+        color: var(--text);
+        vertical-align: middle;
+        white-space: nowrap;
+      }
+
+      .peer-addr {
+        font-family: 'Courier New', monospace;
+        color: var(--primary);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .peer-version {
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        color: var(--text-light);
+        white-space: nowrap;
+      }
+
+      .peer-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+
+      .badge-inbound {
+        background: rgba(0, 212, 255, 0.2);
+        color: #00d4ff;
+      }
+
+      .badge-outbound {
+        background: rgba(163, 0, 255, 0.2);
+        color: var(--primary);
+      }
+
+      .country-flag {
+        width: 24px;
+        height: 18px;
+        display: inline-block;
+        margin-right: 0.5rem;
+        border-radius: 3px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      }
+
+      .country-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .globe-icon {
+        font-size: 1.2rem;
+        margin-right: 0.5rem;
+      }
+
+      .loading-container {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-light);
+      }
+
+      .spinner {
+        border: 3px solid var(--border);
+        border-top: 3px solid var(--primary);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .no-peers {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-light);
+      }
+
+      .error-message {
+        background: rgba(255, 0, 0, 0.1);
+        border: 1px solid rgba(255, 0, 0, 0.3);
+        border-radius: 8px;
+        padding: 1rem;
+        color: #ff4444;
+        margin: 2rem 0;
+      }
+
+      @media (max-width: 768px) {
+        .peers-table {
+          font-size: 0.85rem;
+        }
+
+        .peers-table th,
+        .peers-table td {
+          padding: 0.75rem 0.5rem;
+        }
+
+        .hide-mobile {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="container">
+        <div class="nav-brand">
+          <span class="logo">S256</span>
+          <span class="tagline">Block Explorer</span>
+        </div>
+        <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div class="nav-menu" id="nav-menu">
+          <a href="/" class="nav-link">Blocks</a>
+          <a href="/transactions.html" class="nav-link">Transactions</a>
+          <a href="/peers.html" class="nav-link active">Network</a>
+          <a href="/nodemap.html" class="nav-link">Node Map</a>
+          <a href="/holders.html" class="nav-link">Holders</a>
+          <a href="/api.html" class="nav-link">API</a>
+          <div class="nav-dropdown">
+            <a href="#" class="nav-link dropdown-toggle">Tools ▼</a>
+            <div class="dropdown-menu">
+              <a href="/mempool.html" class="dropdown-item">Mempool</a>
+              <a href="/charts.html" class="dropdown-item">Charts</a>
+            </div>
+          </div>
+        </div>
+        <div class="nav-controls" id="nav-controls">
+          <span class="pi-symbol" id="pi-easter-egg" title="π">π</span>
+          <a href="https://sha256coin.eu/" class="btn-back"
+            >Back to Main Site</a
+          >
+          <button
+            id="theme-toggle"
+            class="theme-toggle"
+            aria-label="Toggle theme"
+          >
+            <span class="theme-icon">🌙</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="peers-container">
+      <div class="peers-header">
+        <h1>🌐 Network Peers</h1>
+        <p style="color: var(--text-light)">
+          Real-time view of connected S256 network nodes
+        </p>
+      </div>
+
+      <div class="peers-stats">
+        <div class="stat-box">
+          <div class="stat-box-value" id="total-peers">-</div>
+          <div class="stat-box-label">Total Peers</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-value" id="inbound-peers">-</div>
+          <div class="stat-box-label">Inbound</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-value" id="outbound-peers">-</div>
+          <div class="stat-box-label">Outbound</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-value" id="avg-ping">-</div>
+          <div class="stat-box-label">Avg Ping (ms)</div>
+        </div>
+      </div>
+
+      <div id="peers-content">
+        <div class="loading-container">
+          <div class="spinner"></div>
+          <p>Loading network peers...</p>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="container">
+        <p>&copy; <script>document.write(new Date().getFullYear())</script> S256 Block Explorer. Real-time network data.</p>
+      </div>
+    </footer>
+
+    <!-- Matrix Terminal Easter Egg -->
+    <div class="matrix-terminal" id="matrix-terminal">
+      <div class="terminal-container">
+        <div class="terminal-header">
+          <div class="terminal-title">S256_SECURE_TERMINAL v1.337 [ENCRYPTED]</div>
+          <button class="terminal-close" id="terminal-close">[X] CLOSE</button>
+        </div>
+        <div class="terminal-content" id="terminal-content">
+          <div class="terminal-line">Initializing secure connection...</div>
+          <div class="terminal-line">Decrypting blockchain parameters...</div>
+          <div class="terminal-line">Access granted.<span class="terminal-cursor"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = window.location.origin;
+
+      // Theme Management
+      function initTheme() {
+        const savedTheme = localStorage.getItem("theme") || "dark";
+        document.documentElement.setAttribute("data-theme", savedTheme);
+        updateThemeIcon(savedTheme);
+      }
+
+      function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute("data-theme");
+        const newTheme = currentTheme === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", newTheme);
+        localStorage.setItem("theme", newTheme);
+        updateThemeIcon(newTheme);
+      }
+
+      function updateThemeIcon(theme) {
+        const icon = document.querySelector(".theme-icon");
+        icon.textContent = theme === "dark" ? "☀️" : "🌙";
+      }
+
+      // Load peers data
+      async function loadPeers() {
+        try {
+          const response = await fetch(`${API_BASE}/api/peers`);
+          const data = await response.json();
+
+          if (data.error) {
+            showError(data.error);
+            return;
+          }
+
+          const peers = data.peers || [];
+
+          // Update stats
+          const inbound = peers.filter(p => p.inbound).length;
+          const outbound = peers.length - inbound;
+          const avgPing = peers.length > 0
+            ? (peers.reduce((sum, p) => sum + (p.pingtime || 0), 0) / peers.length * 1000).toFixed(0)
+            : 0;
+
+          document.getElementById('total-peers').textContent = peers.length;
+          document.getElementById('inbound-peers').textContent = inbound;
+          document.getElementById('outbound-peers').textContent = outbound;
+          document.getElementById('avg-ping').textContent = avgPing;
+
+          // Render peers table
+          if (peers.length === 0) {
+            document.getElementById('peers-content').innerHTML = `
+              <div class="no-peers">
+                <h2>No Connected Peers</h2>
+                <p>The node is not currently connected to any peers.</p>
+              </div>
+            `;
+            return;
+          }
+
+          renderPeersTable(peers);
+        } catch (error) {
+          console.error('Error loading peers:', error);
+          showError('Failed to load network peers. Please try again later.');
+        }
+      }
+
+      function renderPeersTable(peers) {
+        const content = document.getElementById('peers-content');
+        content.innerHTML = `
+          <div class="peers-table-container">
+            <table class="peers-table">
+              <thead>
+                <tr>
+                  <th>Country</th>
+                  <th>Address</th>
+                  <th>User Agent</th>
+                  <th class="hide-mobile">Direction</th>
+                  <th class="hide-mobile">Connection Time</th>
+                  <th class="hide-mobile">Ping (ms)</th>
+                  <th>Version</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${peers.map(peer => `
+                  <tr>
+                    <td><span class="country-flag">${getCountryFlag(peer.countryCode)}</span> <span style="color: var(--text-light); font-size: 0.85rem;">${peer.countryCode || '??'}</span></td>
+                    <td><span class="peer-addr">${peer.addr || 'Unknown'}</span></td>
+                    <td><span class="peer-version">${truncateUserAgent(peer.subver || 'Unknown')}</span></td>
+                    <td class="hide-mobile"><span class="peer-badge ${peer.inbound ? 'badge-inbound' : 'badge-outbound'}">${peer.inbound ? 'Inbound' : 'Outbound'}</span></td>
+                    <td class="hide-mobile">${formatConnectionTime(peer.conntime)}</td>
+                    <td class="hide-mobile">${peer.pingtime ? (peer.pingtime * 1000).toFixed(0) : 'N/A'}</td>
+                    <td>${peer.version || 'N/A'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      function getCountryFlag(countryCode) {
+        if (!countryCode) {
+          return '<span class="globe-icon">🌐</span>';
+        }
+
+        const code = countryCode.toLowerCase();
+        return `<span class="fi fi-${code} country-flag"></span>`;
+      }
+
+      function truncateUserAgent(agent) {
+        const cleaned = agent.replace(/\//g, ' ').trim();
+        return cleaned.length > 50 ? cleaned.substring(0, 47) + '...' : cleaned;
+      }
+
+      function formatConnectionTime(timestamp) {
+        if (!timestamp) return 'Unknown';
+
+        const now = Math.floor(Date.now() / 1000);
+        const diff = now - timestamp;
+
+        if (diff < 60) return `${diff}s`;
+        if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+        return `${Math.floor(diff / 86400)}d`;
+      }
+
+      function showError(message) {
+        document.getElementById('peers-content').innerHTML = `
+          <div class="error-message">
+            <strong>Error:</strong> ${message}
+          </div>
+        `;
+        document.getElementById('total-peers').textContent = '0';
+        document.getElementById('inbound-peers').textContent = '0';
+        document.getElementById('outbound-peers').textContent = '0';
+        document.getElementById('avg-ping').textContent = '0';
+      }
+
+      // Hamburger Menu Toggle
+      function toggleMobileMenu() {
+        const hamburger = document.getElementById("hamburger");
+        const navMenu = document.getElementById("nav-menu");
+        const navControls = document.getElementById("nav-controls");
+
+        hamburger.classList.toggle("active");
+        navMenu.classList.toggle("active");
+        navControls.classList.toggle("active");
+      }
+
+      // Matrix Terminal Easter Egg
+      let terminalContentLoaded = false;
+
+      async function openMatrixTerminal() {
+        const terminal = document.getElementById("matrix-terminal");
+        terminal.classList.add("active");
+
+        if (!terminalContentLoaded) {
+          await loadCoinSupply();
+          terminalContentLoaded = true;
+        }
+      }
+
+      function closeMatrixTerminal() {
+        const terminal = document.getElementById("matrix-terminal");
+        terminal.classList.remove("active");
+      }
+
+      async function loadCoinSupply() {
+        const content = document.getElementById("terminal-content");
+
+        try {
+          content.innerHTML = `
+            <div class="terminal-line">Initializing secure connection...</div>
+            <div class="terminal-line">Decrypting blockchain parameters...</div>
+            <div class="terminal-line">Accessing S256_SUPPLY.dat...</div>
+            <div class="terminal-line">Loading...</div>
+          `;
+
+          const response = await fetch('/COIN_SUPPLY.txt');
+          const text = await response.text();
+
+          setTimeout(() => {
+            displayTerminalContent(text);
+          }, 1000);
+
+        } catch (error) {
+          content.innerHTML = `
+            <div class="terminal-line">ERROR: Unable to access COIN_SUPPLY.txt</div>
+            <div class="terminal-line">Connection failed: ${error.message}</div>
+            <div class="terminal-line"><span class="terminal-cursor"></span></div>
+          `;
+        }
+      }
+
+      function displayTerminalContent(text) {
+        const content = document.getElementById("terminal-content");
+        const lines = text.split('\n');
+
+        content.innerHTML = `
+          <div class="terminal-line">Connection established...</div>
+          <div class="terminal-line">Decryption complete.</div>
+          <div class="terminal-line">Displaying: COIN_SUPPLY.txt</div>
+          <div class="terminal-line">═══════════════════════════════════════════════════════════════════</div>
+          <br>
+        `;
+
+        lines.forEach((line, index) => {
+          setTimeout(() => {
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'terminal-line';
+            lineDiv.textContent = line;
+            lineDiv.style.animationDelay = '0s';
+            content.appendChild(lineDiv);
+            content.scrollTop = content.scrollHeight;
+          }, index * 20);
+        });
+
+        setTimeout(() => {
+          const cursorDiv = document.createElement('div');
+          cursorDiv.className = 'terminal-line';
+          cursorDiv.innerHTML = '<br><span class="terminal-cursor"></span>';
+          content.appendChild(cursorDiv);
+          content.scrollTop = content.scrollHeight;
+        }, lines.length * 20 + 100);
+      }
+
+      // Initialize
+      document.addEventListener("DOMContentLoaded", () => {
+        initTheme();
+        loadPeers();
+
+        // Hamburger menu
+        const hamburger = document.getElementById("hamburger");
+        if (hamburger) {
+          hamburger.addEventListener("click", toggleMobileMenu);
+        }
+
+        // Close mobile menu when clicking a link
+        const navLinks = document.querySelectorAll(".nav-link");
+        navLinks.forEach(link => {
+          link.addEventListener("click", () => {
+            const navMenu = document.getElementById("nav-menu");
+            const navControls = document.getElementById("nav-controls");
+            const hamburger = document.getElementById("hamburger");
+
+            if (navMenu && navMenu.classList.contains("active")) {
+              hamburger.classList.remove("active");
+              navMenu.classList.remove("active");
+              navControls.classList.remove("active");
+            }
+          });
+        });
+
+        // Matrix Terminal Easter Egg
+        const piSymbol = document.getElementById("pi-easter-egg");
+        const terminalClose = document.getElementById("terminal-close");
+        const matrixTerminal = document.getElementById("matrix-terminal");
+
+        if (piSymbol) {
+          piSymbol.addEventListener("click", openMatrixTerminal);
+        }
+
+        if (terminalClose) {
+          terminalClose.addEventListener("click", closeMatrixTerminal);
+        }
+
+        if (matrixTerminal) {
+          matrixTerminal.addEventListener("click", (e) => {
+            if (e.target === matrixTerminal) {
+              closeMatrixTerminal();
+            }
+          });
+        }
+
+        // Theme toggle
+        document
+          .getElementById("theme-toggle")
+          .addEventListener("click", toggleTheme);
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadPeers, 30000);
+      });
+    </script>
+  </body>
+</html>

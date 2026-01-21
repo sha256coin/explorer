@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>API Documentation - S256 Block Explorer</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      .api-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 90px 1rem 1rem;
+      }
+
+      .api-nav {
+        display: flex;
+        gap: 0.4rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .api-nav a {
+        padding: 0.4rem 0.8rem;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--text);
+        transition: all 0.3s ease;
+        font-size: 0.9rem;
+      }
+
+      .api-nav a:hover {
+        background: var(--primary);
+        color: white;
+        transform: translateY(-2px);
+      }
+
+      .api-section {
+        margin-bottom: 1.5rem;
+      }
+
+      .api-section h2 {
+        color: var(--primary);
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.25rem;
+        border-bottom: 2px solid var(--primary);
+        font-size: 1.3rem;
+      }
+
+      .endpoint {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+        transition: transform 0.2s ease;
+      }
+
+      .endpoint:hover {
+        transform: translateX(5px);
+        border-color: var(--primary);
+      }
+
+      .endpoint-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+        flex-wrap: wrap;
+      }
+
+      .method {
+        background: var(--primary);
+        color: white;
+        padding: 0.2rem 0.6rem;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 0.8rem;
+      }
+
+      .endpoint-path {
+        font-family: 'Courier New', monospace;
+        color: var(--primary);
+        font-weight: 600;
+        font-size: 1rem;
+      }
+
+      .endpoint-description {
+        color: var(--text-light);
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        line-height: 1.4;
+      }
+
+      .code-block {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.5rem;
+        margin-top: 0.25rem;
+        overflow-x: auto;
+      }
+
+      .code-block pre {
+        margin: 0;
+        font-family: 'Courier New', monospace;
+        font-size: 0.8rem;
+        line-height: 1.3;
+      }
+
+      .code-header {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        margin-top: 0.4rem;
+        color: var(--text);
+        font-size: 0.85rem;
+      }
+
+      .param-table {
+        width: 100%;
+        margin-top: 0.4rem;
+        border-collapse: collapse;
+      }
+
+      .param-table th,
+      .param-table td {
+        padding: 0.4rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.85rem;
+      }
+
+      .param-table th {
+        background: var(--bg);
+        font-weight: 600;
+      }
+
+      .param-name {
+        font-family: 'Courier New', monospace;
+        color: var(--primary);
+      }
+
+      .intro-section {
+        background: linear-gradient(135deg, var(--primary) 0%, #00d4ff 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+      }
+
+      .intro-section h1 {
+        margin-bottom: 0.5rem;
+        font-size: 1.5rem;
+      }
+
+      .intro-section p {
+        margin-bottom: 0.4rem;
+        font-size: 0.9rem;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="container">
+        <div class="nav-brand">
+          <span class="logo">S256</span>
+          <span class="tagline">Block Explorer</span>
+        </div>
+        <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div class="nav-menu" id="nav-menu">
+          <a href="/" class="nav-link">Blocks</a>
+          <a href="/transactions.html" class="nav-link">Transactions</a>
+          <a href="/peers.html" class="nav-link">Network</a>
+          <a href="/nodemap.html" class="nav-link">Node Map</a>
+          <a href="/holders.html" class="nav-link">Holders</a>
+          <a href="/api.html" class="nav-link active">API</a>
+          <div class="nav-dropdown">
+            <a href="#" class="nav-link dropdown-toggle">Tools ▼</a>
+            <div class="dropdown-menu">
+              <a href="/mempool.html" class="dropdown-item">Mempool</a>
+              <a href="/charts.html" class="dropdown-item">Charts</a>
+            </div>
+          </div>
+        </div>
+        <div class="nav-controls" id="nav-controls">
+          <span class="pi-symbol" id="pi-easter-egg" title="π">π</span>
+          <a href="https://sha256coin.eu/" class="btn-back"
+            >Back to Main Site</a
+          >
+          <button
+            id="theme-toggle"
+            class="theme-toggle"
+            aria-label="Toggle theme"
+          >
+            <span class="theme-icon">🌙</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="api-container">
+      <div class="intro-section">
+        <h1>S256 Block Explorer API</h1>
+        <p>
+          Access blockchain data programmatically without running a local wallet.
+          All endpoints return JSON data and can be accessed via standard HTTP GET requests.
+        </p>
+        <p style="margin-top: 1rem">
+          <strong>Base URL:</strong> <code style="background: rgba(0,0,0,0.2); padding: 0.25rem 0.5rem; border-radius: 4px;">https://explorer.sha256coin.eu/api/</code>
+        </p>
+      </div>
+
+      <div class="api-nav">
+        <a href="#blockchain-info">Blockchain Info</a>
+        <a href="#blocks">Blocks</a>
+        <a href="#transactions">Transactions</a>
+        <a href="#addresses">Addresses</a>
+        <a href="#search">Search</a>
+        <a href="#daemon">Daemon APIs</a>
+        <a href="#network">Network Stats</a>
+      </div>
+
+      <!-- Blockchain Information -->
+      <div class="api-section" id="blockchain-info">
+        <h2>📊 Blockchain Information</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/blockchain-info</span>
+          </div>
+          <div class="endpoint-description">
+            Returns current blockchain information including height, difficulty, connections, and network hashrate.
+          </div>
+          <div class="code-header">Example Request:</div>
+          <div class="code-block">
+            <pre>curl https://explorer.sha256coin.eu/api/blockchain-info</pre>
+          </div>
+          <div class="code-header">Example Response:</div>
+          <div class="code-block">
+            <pre>{
+  "blocks": 12500,
+  "difficulty": 0.00024414,
+  "networkhashps": 12345678,
+  "connections": 8
+}</pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/supply</span>
+          </div>
+          <div class="endpoint-description">
+            Returns the current circulating supply of S256.
+          </div>
+          <div class="code-header">Example Request:</div>
+          <div class="code-block">
+            <pre>curl https://explorer.sha256coin.eu/api/supply</pre>
+          </div>
+          <div class="code-header">Example Response:</div>
+          <div class="code-block">
+            <pre>{
+  "supply": 1250000.00000000
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Blocks -->
+      <div class="api-section" id="blocks">
+        <h2>🧱 Blocks</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/blocks/recent/:count?</span>
+          </div>
+          <div class="endpoint-description">
+            Returns recent blocks. Optional count parameter (default: 20).
+          </div>
+          <table class="param-table">
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">count</span></td>
+                <td>integer</td>
+                <td>Number of blocks to return (optional, default: 20)</td>
+              </tr>
+              <tr>
+                <td><span class="param-name">page</span></td>
+                <td>integer</td>
+                <td>Page number for pagination (query parameter)</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="code-header">Example Request:</div>
+          <div class="code-block">
+            <pre>curl https://explorer.sha256coin.eu/api/blocks/recent/10?page=1</pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/block/:hashOrHeight</span>
+          </div>
+          <div class="endpoint-description">
+            Returns detailed information about a specific block by hash or height.
+          </div>
+          <table class="param-table">
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">hashOrHeight</span></td>
+                <td>string/integer</td>
+                <td>Block hash or block height</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="code-header">Example Request (by height):</div>
+          <div class="code-block">
+            <pre>curl https://explorer.sha256coin.eu/api/block/1000</pre>
+          </div>
+          <div class="code-header">Example Request (by hash):</div>
+          <div class="code-block">
+            <pre>curl https://explorer.sha256coin.eu/api/block/00000000abe2a78ceb00eca81258804d59fe4ad45345e1750e705139e6da7297</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transactions -->
+      <div class="api-section" id="transactions">
+        <h2>💳 Transactions</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/tx/:txid</span>
+          </div>
+          <div class="endpoint-description">
+            Returns detailed information about a specific transaction.
+          </div>
+          <table class="param-table">
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">txid</span></td>
+                <td>string</td>
+                <td>Transaction ID (hash)</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="code-header">Example Request:</div>
+          <div class="code-block">
+            <pre>curl https://explorer.sha256coin.eu/api/tx/328fbe73f2b764658b57a0ac538d67e59b5c6bcde2c266a71bbb842f5430d595</pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/mempool</span>
+          </div>
+          <div class="endpoint-description">
+            Returns transactions currently in the mempool (unconfirmed).
+          </div>
+          <div class="code-header">Example Request:</div>
+          <div class="code-block">
+            <pre>curl https://explorer.sha256coin.eu/api/mempool</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Addresses -->
+      <div class="api-section" id="addresses">
+        <h2>📬 Addresses</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/address/:address</span>
+          </div>
+          <div class="endpoint-description">
+            Returns information about an address including balance, transaction count, and transaction history.
+          </div>
+          <table class="param-table">
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">address</span></td>
+                <td>string</td>
+                <td>S256 address (s2... bech32 or S... legacy format)</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="code-header">Example Request:</div>
+          <div class="code-block">
+            <pre>curl https://explorer.sha256coin.eu/api/address/S1A2B3C4D5E6F7G8H9</pre>
+          </div>
+          <div class="code-header">Example Response:</div>
+          <div class="code-block">
+            <pre>{
+  "address": "S1A2B3C4D5E6F7G8H9",
+  "balance": 100.50000000,
+  "received": 250.00000000,
+  "sent": 149.50000000,
+  "txCount": 15,
+  "transactions": [...]
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="api-section" id="search">
+        <h2>🔍 Search</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/search/:query</span>
+          </div>
+          <div class="endpoint-description">
+            Universal search endpoint. Automatically detects if query is a block height, block hash, transaction ID, or address.
+          </div>
+          <table class="param-table">
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">query</span></td>
+                <td>string</td>
+                <td>Block height, block hash, transaction ID, or address</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="code-header">Example Request:</div>
+          <div class="code-block">
+            <pre>curl https://explorer.sha256coin.eu/api/search/1000</pre>
+          </div>
+          <div class="code-header">Example Response:</div>
+          <div class="code-block">
+            <pre>{
+  "type": "block",
+  "data": { ... }
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Daemon APIs -->
+      <div class="api-section" id="daemon">
+        <h2>⚙️ Daemon APIs (RPC Passthrough)</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/getblockcount</span>
+          </div>
+          <div class="endpoint-description">
+            Returns the current block height (number of blocks in the longest blockchain).
+          </div>
+          <div class="code-header">Example Request:</div>
+          <div class="code-block">
+            <pre>curl https://explorer.sha256coin.eu/api/getblockcount</pre>
+          </div>
+          <div class="code-header">Example Response:</div>
+          <div class="code-block">
+            <pre>{
+  "blockcount": 12500
+}</pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/getdifficulty</span>
+          </div>
+          <div class="endpoint-description">
+            Returns the current mining difficulty.
+          </div>
+          <div class="code-header">Example Request:</div>
+          <div class="code-block">
+            <pre>curl https://explorer.sha256coin.eu/api/getdifficulty</pre>
+          </div>
+          <div class="code-header">Example Response:</div>
+          <div class="code-block">
+            <pre>{
+  "difficulty": 0.00024414
+}</pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/getnetworkhashps</span>
+          </div>
+          <div class="endpoint-description">
+            Returns the estimated network hash rate (hashes per second).
+          </div>
+          <div class="code-header">Example Request:</div>
+          <div class="code-block">
+            <pre>curl https://explorer.sha256coin.eu/api/getnetworkhashps</pre>
+          </div>
+          <div class="code-header">Example Response:</div>
+          <div class="code-block">
+            <pre>{
+  "networkhashps": 12345678.90
+}</pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/getinfo</span>
+          </div>
+          <div class="endpoint-description">
+            Returns comprehensive network information including version, protocol, connections, and more.
+          </div>
+          <div class="code-header">Example Request:</div>
+          <div class="code-block">
+            <pre>curl https://explorer.sha256coin.eu/api/getinfo</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Network Stats -->
+      <div class="api-section" id="network">
+        <h2>📈 Network Statistics</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/stats/history</span>
+          </div>
+          <div class="endpoint-description">
+            Returns historical network statistics (difficulty, hashrate, connections over time).
+          </div>
+          <table class="param-table">
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">hours</span></td>
+                <td>integer</td>
+                <td>Number of hours of history (default: 24, query parameter)</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="code-header">Example Request:</div>
+          <div class="code-block">
+            <pre>curl https://explorer.sha256coin.eu/api/stats/history?hours=48</pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/health</span>
+          </div>
+          <div class="endpoint-description">
+            Returns the health status of the explorer and its connection to the blockchain node.
+          </div>
+          <div class="code-header">Example Request:</div>
+          <div class="code-block">
+            <pre>curl https://explorer.sha256coin.eu/api/health</pre>
+          </div>
+          <div class="code-header">Example Response:</div>
+          <div class="code-block">
+            <pre>{
+  "status": "ok",
+  "database": "connected",
+  "node": "connected",
+  "lastSync": "2025-12-23T18:00:00.000Z"
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="intro-section" style="margin-top: 3rem;">
+        <h2>Rate Limiting</h2>
+        <p>
+          The search endpoint is rate-limited to 30 requests per minute per IP address.
+          Other endpoints currently have no rate limits but please use responsibly.
+        </p>
+        <h2 style="margin-top: 1.5rem;">Support</h2>
+        <p>
+          For questions or issues with the API, please visit:
+          <a href="https://discord.gg/dtn58HrC94" style="color: #FFD700;">Discord</a> |
+          <a href="https://t.me/s256coin" style="color: #FFD700;">Telegram</a> |
+          <a href="https://github.com/sha256coin" style="color: #FFD700;">GitHub</a>
+        </p>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="container">
+        <p>&copy; <script>document.write(new Date().getFullYear())</script> S256 Block Explorer API Documentation</p>
+      </div>
+    </footer>
+
+    <!-- Matrix Terminal Easter Egg -->
+    <div class="matrix-terminal" id="matrix-terminal">
+      <div class="terminal-container">
+        <div class="terminal-header">
+          <div class="terminal-title">S256_SECURE_TERMINAL v1.337 [ENCRYPTED]</div>
+          <button class="terminal-close" id="terminal-close">[X] CLOSE</button>
+        </div>
+        <div class="terminal-content" id="terminal-content">
+          <div class="terminal-line">Initializing secure connection...</div>
+          <div class="terminal-line">Decrypting blockchain parameters...</div>
+          <div class="terminal-line">Access granted.<span class="terminal-cursor"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Theme toggle functionality
+      function initTheme() {
+        const savedTheme = localStorage.getItem("theme") || "dark";
+        document.documentElement.setAttribute("data-theme", savedTheme);
+        updateThemeIcon(savedTheme);
+      }
+
+      function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute("data-theme");
+        const newTheme = currentTheme === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", newTheme);
+        localStorage.setItem("theme", newTheme);
+        updateThemeIcon(newTheme);
+      }
+
+      function updateThemeIcon(theme) {
+        const icon = document.querySelector(".theme-icon");
+        icon.textContent = theme === "dark" ? "☀️" : "🌙";
+      }
+
+      // Hamburger Menu Toggle
+      function toggleMobileMenu() {
+        const hamburger = document.getElementById("hamburger");
+        const navMenu = document.getElementById("nav-menu");
+        const navControls = document.getElementById("nav-controls");
+
+        hamburger.classList.toggle("active");
+        navMenu.classList.toggle("active");
+        navControls.classList.toggle("active");
+      }
+
+      // Matrix Terminal Easter Egg
+      let terminalContentLoaded = false;
+
+      async function openMatrixTerminal() {
+        const terminal = document.getElementById("matrix-terminal");
+        terminal.classList.add("active");
+
+        if (!terminalContentLoaded) {
+          await loadCoinSupply();
+          terminalContentLoaded = true;
+        }
+      }
+
+      function closeMatrixTerminal() {
+        const terminal = document.getElementById("matrix-terminal");
+        terminal.classList.remove("active");
+      }
+
+      async function loadCoinSupply() {
+        const content = document.getElementById("terminal-content");
+
+        try {
+          content.innerHTML = `
+            <div class="terminal-line">Initializing secure connection...</div>
+            <div class="terminal-line">Decrypting blockchain parameters...</div>
+            <div class="terminal-line">Accessing S256_SUPPLY.dat...</div>
+            <div class="terminal-line">Loading...</div>
+          `;
+
+          const response = await fetch('/COIN_SUPPLY.txt');
+          const text = await response.text();
+
+          setTimeout(() => {
+            displayTerminalContent(text);
+          }, 1000);
+
+        } catch (error) {
+          content.innerHTML = `
+            <div class="terminal-line">ERROR: Unable to access COIN_SUPPLY.txt</div>
+            <div class="terminal-line">Connection failed: ${error.message}</div>
+            <div class="terminal-line"><span class="terminal-cursor"></span></div>
+          `;
+        }
+      }
+
+      function displayTerminalContent(text) {
+        const content = document.getElementById("terminal-content");
+        const lines = text.split('\n');
+
+        content.innerHTML = `
+          <div class="terminal-line">Connection established...</div>
+          <div class="terminal-line">Decryption complete.</div>
+          <div class="terminal-line">Displaying: COIN_SUPPLY.txt</div>
+          <div class="terminal-line">═══════════════════════════════════════════════════════════════════</div>
+          <br>
+        `;
+
+        lines.forEach((line, index) => {
+          setTimeout(() => {
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'terminal-line';
+            lineDiv.textContent = line;
+            lineDiv.style.animationDelay = '0s';
+            content.appendChild(lineDiv);
+            content.scrollTop = content.scrollHeight;
+          }, index * 20);
+        });
+
+        setTimeout(() => {
+          const cursorDiv = document.createElement('div');
+          cursorDiv.className = 'terminal-line';
+          cursorDiv.innerHTML = '<br><span class="terminal-cursor"></span>';
+          content.appendChild(cursorDiv);
+          content.scrollTop = content.scrollHeight;
+        }, lines.length * 20 + 100);
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        initTheme();
+
+        // Hamburger menu
+        const hamburger = document.getElementById("hamburger");
+        if (hamburger) {
+          hamburger.addEventListener("click", toggleMobileMenu);
+        }
+
+        // Close mobile menu when clicking a link
+        const navLinks = document.querySelectorAll(".nav-link");
+        navLinks.forEach(link => {
+          link.addEventListener("click", () => {
+            const navMenu = document.getElementById("nav-menu");
+            const navControls = document.getElementById("nav-controls");
+            const hamburger = document.getElementById("hamburger");
+
+            if (navMenu && navMenu.classList.contains("active")) {
+              hamburger.classList.remove("active");
+              navMenu.classList.remove("active");
+              navControls.classList.remove("active");
+            }
+          });
+        });
+
+        // Matrix Terminal Easter Egg
+        const piSymbol = document.getElementById("pi-easter-egg");
+        const terminalClose = document.getElementById("terminal-close");
+        const matrixTerminal = document.getElementById("matrix-terminal");
+
+        if (piSymbol) {
+          piSymbol.addEventListener("click", openMatrixTerminal);
+        }
+
+        if (terminalClose) {
+          terminalClose.addEventListener("click", closeMatrixTerminal);
+        }
+
+        if (matrixTerminal) {
+          matrixTerminal.addEventListener("click", (e) => {
+            if (e.target === matrixTerminal) {
+              closeMatrixTerminal();
+            }
+          });
+        }
+
+        document
+          .getElementById("theme-toggle")
+          .addEventListener("click", toggleTheme);
+      });
+
+      // Smooth scroll for navigation
+      document.querySelectorAll('.api-nav a').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+          e.preventDefault();
+          const target = document.querySelector(this.getAttribute('href'));
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+    </script>
+  </body>
+</html>

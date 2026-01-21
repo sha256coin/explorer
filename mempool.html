@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mempool - S256 Block Explorer</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
+    <link rel="stylesheet" href="/styles.css?v=16" />
+    <style>
+      .mempool-container {
+        max-width: 1600px;
+        margin: 100px auto 2rem;
+        padding: 0 1rem;
+      }
+
+      .mempool-header {
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .mempool-header h1 {
+        color: var(--text);
+        margin: 0;
+      }
+
+      .refresh-btn {
+        padding: 0.75rem 1.5rem;
+        background: var(--gradient);
+        color: white;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .refresh-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(163, 0, 255, 0.3);
+      }
+
+      .refresh-btn.loading {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .mempool-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+
+      .mempool-stat-card {
+        background: var(--bg-card);
+        padding: 1.5rem;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        border-left: 4px solid var(--primary);
+      }
+
+      .mempool-stat-label {
+        font-size: 0.85rem;
+        color: var(--text-light);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 0.5rem;
+      }
+
+      .mempool-stat-value {
+        font-size: 1.75rem;
+        font-weight: 800;
+        background: var(--gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .mempool-empty {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: var(--bg-card);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+
+      .mempool-empty-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+      }
+
+      .mempool-table-container {
+        background: var(--bg-card);
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+
+      .mempool-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .mempool-table thead {
+        background: linear-gradient(135deg, var(--primary) 0%, #00d4ff 100%);
+        color: white;
+      }
+
+      .mempool-table th {
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+        white-space: nowrap;
+      }
+
+      .mempool-table tbody tr {
+        border-bottom: 1px solid rgba(163, 0, 255, 0.1);
+        transition: all 0.2s ease;
+      }
+
+      .mempool-table tbody tr:hover {
+        background: rgba(163, 0, 255, 0.08);
+        cursor: pointer;
+        transform: scale(1.01);
+      }
+
+      .mempool-table td {
+        padding: 1rem;
+        color: var(--text);
+        vertical-align: middle;
+      }
+
+      .tx-hash {
+        font-family: 'Courier New', monospace;
+        color: var(--primary);
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+
+      .fee-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .fee-high {
+        background: linear-gradient(135deg, #ff4444 0%, #ff8844 100%);
+        color: white;
+      }
+
+      .fee-medium {
+        background: linear-gradient(135deg, #ffa500 0%, #ffd700 100%);
+        color: #000;
+      }
+
+      .fee-low {
+        background: linear-gradient(135deg, #00d4ff 0%, #0080ff 100%);
+        color: white;
+      }
+
+      .time-badge {
+        font-size: 0.85rem;
+        color: var(--text-light);
+        font-weight: 600;
+      }
+
+      .loading-container {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-light);
+      }
+
+      .spinner {
+        border: 3px solid rgba(163, 0, 255, 0.2);
+        border-top: 3px solid var(--primary);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .error-message {
+        background: rgba(255, 0, 0, 0.1);
+        border: 1px solid rgba(255, 0, 0, 0.3);
+        border-radius: var(--radius-sm);
+        padding: 1rem;
+        color: #ff4444;
+        margin: 2rem 0;
+      }
+
+      @media (max-width: 1024px) {
+        .hide-tablet {
+          display: none;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .mempool-table {
+          font-size: 0.85rem;
+        }
+
+        .mempool-table th,
+        .mempool-table td {
+          padding: 0.75rem 0.5rem;
+        }
+
+        .hide-mobile {
+          display: none;
+        }
+
+        .mempool-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="container">
+        <div class="nav-brand">
+          <span class="logo">S256</span>
+          <span class="tagline">Block Explorer</span>
+        </div>
+        <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div class="nav-menu" id="nav-menu">
+          <a href="/" class="nav-link">Blocks</a>
+          <a href="/transactions.html" class="nav-link">Transactions</a>
+          <a href="/peers.html" class="nav-link">Network</a>
+          <a href="/nodemap.html" class="nav-link">Node Map</a>
+          <a href="/holders.html" class="nav-link">Holders</a>
+          <a href="/api.html" class="nav-link">API</a>
+          <div class="nav-dropdown">
+            <a href="#" class="nav-link dropdown-toggle">Tools ▼</a>
+            <div class="dropdown-menu">
+              <a href="/mempool.html" class="dropdown-item active">Mempool</a>
+              <a href="/charts.html" class="dropdown-item">Charts</a>
+            </div>
+          </div>
+        </div>
+        <div class="nav-controls" id="nav-controls">
+          <span class="pi-symbol" id="pi-easter-egg" title="π">π</span>
+          <a href="https://sha256coin.eu/" class="btn-back">Back to Main Site</a>
+          <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+            <span class="theme-icon">🌙</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="mempool-container">
+      <div class="mempool-header">
+        <div>
+          <h1>⏳ Mempool</h1>
+          <p style="color: var(--text-light); margin: 0.5rem 0 0 0;">
+            Unconfirmed transactions waiting to be mined
+          </p>
+        </div>
+        <button id="refresh-btn" class="refresh-btn" onclick="loadMempool()">
+          <span id="refresh-icon">🔄</span> Refresh
+        </button>
+      </div>
+
+      <div id="mempool-stats-section" style="display: none;">
+        <div class="mempool-stats">
+          <div class="mempool-stat-card">
+            <div class="mempool-stat-label">Transactions</div>
+            <div class="mempool-stat-value" id="stat-count">-</div>
+          </div>
+          <div class="mempool-stat-card">
+            <div class="mempool-stat-label">Total Size</div>
+            <div class="mempool-stat-value" id="stat-size">-</div>
+          </div>
+          <div class="mempool-stat-card">
+            <div class="mempool-stat-label">Total Fees</div>
+            <div class="mempool-stat-value" id="stat-fees">-</div>
+          </div>
+          <div class="mempool-stat-card">
+            <div class="mempool-stat-label">Avg Fee</div>
+            <div class="mempool-stat-value" id="stat-avg-fee">-</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="mempool-content">
+        <div class="loading-container">
+          <div class="spinner"></div>
+          <p>Loading mempool...</p>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="container">
+        <p>&copy; <script>document.write(new Date().getFullYear())</script> S256 Block Explorer. Real-time mempool data.</p>
+      </div>
+    </footer>
+
+    <!-- Matrix Terminal Easter Egg -->
+    <div class="matrix-terminal" id="matrix-terminal">
+      <div class="terminal-container">
+        <div class="terminal-header">
+          <div class="terminal-title">S256_SECURE_TERMINAL v1.337 [ENCRYPTED]</div>
+          <button class="terminal-close" id="terminal-close">[X] CLOSE</button>
+        </div>
+        <div class="terminal-content" id="terminal-content">
+          <div class="terminal-line">Initializing secure connection...</div>
+          <div class="terminal-line">Decrypting blockchain parameters...</div>
+          <div class="terminal-line">Access granted.<span class="terminal-cursor"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = window.location.origin;
+      let autoRefreshInterval = null;
+
+      // Theme Management
+      function initTheme() {
+        const savedTheme = localStorage.getItem("theme") || "dark";
+        document.documentElement.setAttribute("data-theme", savedTheme);
+        updateThemeIcon(savedTheme);
+      }
+
+      function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute("data-theme");
+        const newTheme = currentTheme === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", newTheme);
+        localStorage.setItem("theme", newTheme);
+        updateThemeIcon(newTheme);
+      }
+
+      function updateThemeIcon(theme) {
+        const icon = document.querySelector(".theme-icon");
+        icon.textContent = theme === "dark" ? "☀️" : "🌙";
+      }
+
+      // Load mempool
+      async function loadMempool() {
+        const refreshBtn = document.getElementById('refresh-btn');
+        const refreshIcon = document.getElementById('refresh-icon');
+
+        refreshBtn.classList.add('loading');
+        refreshBtn.disabled = true;
+
+        try {
+          const response = await fetch(`${API_BASE}/api/mempool`);
+          const data = await response.json();
+
+          if (data.error) {
+            showError(data.error);
+            return;
+          }
+
+          const transactions = data.transactions || [];
+          const stats = data.stats || { count: 0, totalSize: 0, totalFees: 0, totalVSize: 0 };
+
+          // Update stats
+          document.getElementById('stat-count').textContent = stats.count.toLocaleString();
+          document.getElementById('stat-size').textContent = formatBytes(stats.totalSize);
+          document.getElementById('stat-fees').textContent = `${stats.totalFees.toFixed(8)} S256`;
+          document.getElementById('stat-avg-fee').textContent = stats.count > 0
+            ? `${(stats.totalFees / stats.count).toFixed(8)} S256`
+            : '0 S256';
+
+          if (transactions.length === 0) {
+            document.getElementById('mempool-stats-section').style.display = 'none';
+            document.getElementById('mempool-content').innerHTML = `
+              <div class="mempool-empty">
+                <div class="mempool-empty-icon">✨</div>
+                <h2>Mempool is Empty</h2>
+                <p style="color: var(--text-light);">No unconfirmed transactions at the moment. All transactions have been mined!</p>
+              </div>
+            `;
+            return;
+          }
+
+          document.getElementById('mempool-stats-section').style.display = 'block';
+          renderMempoolTable(transactions);
+        } catch (error) {
+          console.error('Error loading mempool:', error);
+          showError('Failed to load mempool data. Please try again later.');
+        } finally {
+          refreshBtn.classList.remove('loading');
+          refreshBtn.disabled = false;
+        }
+      }
+
+      function renderMempoolTable(transactions) {
+        const content = document.getElementById('mempool-content');
+        content.innerHTML = `
+          <div class="mempool-table-container">
+            <table class="mempool-table">
+              <thead>
+                <tr>
+                  <th>Transaction Hash</th>
+                  <th>Fee</th>
+                  <th class="hide-mobile">Size</th>
+                  <th class="hide-tablet">Time in Mempool</th>
+                  <th class="hide-mobile">Fee Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${transactions.map(tx => {
+                  const feeClass = getFeeClass(tx.fees?.base || 0);
+                  const timeInMempool = Date.now() / 1000 - (tx.time || 0);
+
+                  return `
+                    <tr onclick="window.location.href='/tx/${tx.txid}'">
+                      <td>
+                        <span class="tx-hash">${truncateHash(tx.txid)}</span>
+                      </td>
+                      <td>
+                        <span class="fee-badge ${feeClass}">
+                          ${(tx.fees?.base || 0).toFixed(8)} S256
+                        </span>
+                      </td>
+                      <td class="hide-mobile">${formatBytes(tx.size || 0)}</td>
+                      <td class="hide-tablet">
+                        <span class="time-badge">${formatTimeAgo(timeInMempool)}</span>
+                      </td>
+                      <td class="hide-mobile">
+                        ${tx.fees?.base && tx.vsize ? ((tx.fees.base / tx.vsize) * 1000).toFixed(2) : '0'} sat/vB
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      function getFeeClass(fee) {
+        if (fee > 0.001) return 'fee-high';
+        if (fee > 0.0001) return 'fee-medium';
+        return 'fee-low';
+      }
+
+      function truncateHash(hash) {
+        if (!hash) return 'N/A';
+        if (hash.length <= 20) return hash;
+        return `${hash.substring(0, 12)}...${hash.substring(hash.length - 8)}`;
+      }
+
+      function formatBytes(bytes) {
+        if (!bytes) return '0 B';
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+      }
+
+      function formatTimeAgo(seconds) {
+        if (seconds < 60) return `${Math.floor(seconds)}s ago`;
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+        return `${Math.floor(seconds / 86400)}d ago`;
+      }
+
+      function showError(message) {
+        document.getElementById('mempool-stats-section').style.display = 'none';
+        document.getElementById('mempool-content').innerHTML = `
+          <div class="error-message">
+            <strong>Error:</strong> ${message}
+          </div>
+        `;
+      }
+
+      // Hamburger Menu Toggle
+      function toggleMobileMenu() {
+        const hamburger = document.getElementById("hamburger");
+        const navMenu = document.getElementById("nav-menu");
+        const navControls = document.getElementById("nav-controls");
+
+        hamburger.classList.toggle("active");
+        navMenu.classList.toggle("active");
+        navControls.classList.toggle("active");
+      }
+
+      // Matrix Terminal Easter Egg
+      let terminalContentLoaded = false;
+
+      async function openMatrixTerminal() {
+        const terminal = document.getElementById("matrix-terminal");
+        terminal.classList.add("active");
+
+        if (!terminalContentLoaded) {
+          await loadCoinSupply();
+          terminalContentLoaded = true;
+        }
+      }
+
+      function closeMatrixTerminal() {
+        const terminal = document.getElementById("matrix-terminal");
+        terminal.classList.remove("active");
+      }
+
+      async function loadCoinSupply() {
+        const content = document.getElementById("terminal-content");
+
+        try {
+          content.innerHTML = `
+            <div class="terminal-line">Initializing secure connection...</div>
+            <div class="terminal-line">Decrypting blockchain parameters...</div>
+            <div class="terminal-line">Accessing S256_SUPPLY.dat...</div>
+            <div class="terminal-line">Loading...</div>
+          `;
+
+          const response = await fetch('/COIN_SUPPLY.txt');
+          const text = await response.text();
+
+          setTimeout(() => {
+            displayTerminalContent(text);
+          }, 1000);
+
+        } catch (error) {
+          content.innerHTML = `
+            <div class="terminal-line">ERROR: Unable to access COIN_SUPPLY.txt</div>
+            <div class="terminal-line">Connection failed: ${error.message}</div>
+            <div class="terminal-line"><span class="terminal-cursor"></span></div>
+          `;
+        }
+      }
+
+      function displayTerminalContent(text) {
+        const content = document.getElementById("terminal-content");
+        const lines = text.split('\n');
+
+        content.innerHTML = `
+          <div class="terminal-line">Connection established...</div>
+          <div class="terminal-line">Decryption complete.</div>
+          <div class="terminal-line">Displaying: COIN_SUPPLY.txt</div>
+          <div class="terminal-line">═══════════════════════════════════════════════════════════════════</div>
+          <br>
+        `;
+
+        lines.forEach((line, index) => {
+          setTimeout(() => {
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'terminal-line';
+            lineDiv.textContent = line;
+            lineDiv.style.animationDelay = '0s';
+            content.appendChild(lineDiv);
+            content.scrollTop = content.scrollHeight;
+          }, index * 20);
+        });
+
+        setTimeout(() => {
+          const cursorDiv = document.createElement('div');
+          cursorDiv.className = 'terminal-line';
+          cursorDiv.innerHTML = '<br><span class="terminal-cursor"></span>';
+          content.appendChild(cursorDiv);
+          content.scrollTop = content.scrollHeight;
+        }, lines.length * 20 + 100);
+      }
+
+      // Initialize
+      document.addEventListener("DOMContentLoaded", () => {
+        initTheme();
+        loadMempool();
+
+        // Hamburger menu
+        const hamburger = document.getElementById("hamburger");
+        if (hamburger) {
+          hamburger.addEventListener("click", toggleMobileMenu);
+        }
+
+        // Close mobile menu when clicking a link
+        const navLinks = document.querySelectorAll(".nav-link");
+        navLinks.forEach(link => {
+          link.addEventListener("click", () => {
+            const navMenu = document.getElementById("nav-menu");
+            const navControls = document.getElementById("nav-controls");
+            const hamburger = document.getElementById("hamburger");
+
+            if (navMenu && navMenu.classList.contains("active")) {
+              hamburger.classList.remove("active");
+              navMenu.classList.remove("active");
+              navControls.classList.remove("active");
+            }
+          });
+        });
+
+        // Matrix Terminal Easter Egg
+        const piSymbol = document.getElementById("pi-easter-egg");
+        const terminalClose = document.getElementById("terminal-close");
+        const matrixTerminal = document.getElementById("matrix-terminal");
+
+        if (piSymbol) {
+          piSymbol.addEventListener("click", openMatrixTerminal);
+        }
+
+        if (terminalClose) {
+          terminalClose.addEventListener("click", closeMatrixTerminal);
+        }
+
+        if (matrixTerminal) {
+          matrixTerminal.addEventListener("click", (e) => {
+            if (e.target === matrixTerminal) {
+              closeMatrixTerminal();
+            }
+          });
+        }
+
+        // Theme toggle
+        document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
+
+        // Auto-refresh every 10 seconds
+        autoRefreshInterval = setInterval(loadMempool, 10000);
+      });
+    </script>
+  </body>
+</html>

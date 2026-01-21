@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>S256 Block Explorer</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
+    <link rel="stylesheet" href="/styles.css?v=17" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="container">
+        <div class="nav-brand">
+          <span class="logo">S256</span>
+          <span class="tagline">Block Explorer</span>
+        </div>
+        <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div class="nav-menu" id="nav-menu">
+          <a href="/" class="nav-link active">Blocks</a>
+          <a href="/transactions.html" class="nav-link">Transactions</a>
+          <a href="/peers.html" class="nav-link">Network</a>
+          <a href="/nodemap.html" class="nav-link">Node Map</a>
+          <a href="/holders.html" class="nav-link">Holders</a>
+          <a href="/api.html" class="nav-link">API</a>
+          <div class="nav-dropdown">
+            <a href="#" class="nav-link dropdown-toggle">Tools ▼</a>
+            <div class="dropdown-menu">
+              <a href="/mempool.html" class="dropdown-item">Mempool</a>
+              <a href="/charts.html" class="dropdown-item">Charts</a>
+            </div>
+          </div>
+        </div>
+        <div class="nav-controls" id="nav-controls">
+          <span class="pi-symbol" id="pi-easter-egg" title="π">π</span>
+          <a href="https://sha256coin.eu/" class="btn-back"
+            >Back to Main Site</a
+          >
+          <button
+            id="theme-toggle"
+            class="theme-toggle"
+            aria-label="Toggle theme"
+          >
+            <span class="theme-icon">🌙</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <section class="hero-mini">
+      <div class="container">
+        <h1>S256 Block Explorer</h1>
+        <div class="search-bar">
+          <input
+            type="text"
+            id="search"
+            placeholder="Search by Block Height, Block Hash, Transaction ID, or Address..."
+          />
+          <button id="search-btn" class="btn-search">Search</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats-section">
+      <div class="container">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-info">
+              <div class="stat-label">Block Height</div>
+              <div class="stat-value" id="blockHeight">-</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">⛏️</div>
+            <div class="stat-info">
+              <div class="stat-label">Difficulty</div>
+              <div class="stat-value" id="difficulty">-</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-info">
+              <div class="stat-label">Hash Rate</div>
+              <div class="stat-value" id="hashrate">-</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🔗</div>
+            <div class="stat-info">
+              <div class="stat-label">Connections</div>
+              <div class="stat-value" id="connections">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="main-content">
+      <div class="container">
+        <div id="search-results" class="search-results" style="display: none">
+          <h2>Search Results</h2>
+          <div id="search-content"></div>
+        </div>
+
+        <!-- 7-Day Hashrate Chart -->
+        <div id="hashrate-chart-section" style="margin-bottom: 2rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2 style="margin: 0;">📈 Network Hashrate (7 Days)</h2>
+            <a href="/charts.html" style="color: var(--primary); text-decoration: none; font-weight: 600; font-size: 0.9rem;">View All Charts →</a>
+          </div>
+          <div style="background: var(--bg-card); border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow); position: relative;">
+            <div id="hashrate-chart-loading" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-card); display: flex; align-items: center; justify-content: center; border-radius: var(--radius); z-index: 10;">
+              <div style="text-align: center;">
+                <div style="border: 3px solid rgba(163, 0, 255, 0.2); border-top: 3px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+                <p style="color: var(--text-light);">Loading hashrate data...</p>
+              </div>
+            </div>
+            <canvas id="hashrate-chart" style="max-height: 300px;"></canvas>
+          </div>
+        </div>
+
+        <div id="blocks-section">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2 style="margin: 0;">Recent Blocks</h2>
+            <div id="blocks-page-info" class="page-info"></div>
+          </div>
+          <div class="table-container">
+            <table class="blocks-table">
+              <thead>
+                <tr>
+                  <th>Height</th>
+                  <th>Hash</th>
+                  <th>Time</th>
+                  <th>Transactions</th>
+                  <th>Size</th>
+                </tr>
+              </thead>
+              <tbody id="blocks-list">
+                <tr>
+                  <td colspan="5" class="loading">Loading blocks...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination pagination-blocks">
+            <div class="pagination-controls">
+              <button id="first-page" class="btn-page" onclick="goToPage(1)">
+                ← First
+              </button>
+              <button id="prev-page" class="btn-page" onclick="changePage(-1)">
+                ← Prev
+              </button>
+              <div id="page-numbers" class="page-numbers"></div>
+              <button id="next-page" class="btn-page" onclick="changePage(1)">
+                Next →
+              </button>
+              <button id="last-page" class="btn-page" onclick="goToLastPage()">
+                Last →
+              </button>
+            </div>
+            <div class="pagination-info">
+              <div id="blocks-page-info-pagination" class="page-info"></div>
+              <div class="page-jump">
+                <input type="number" id="page-jump-input" placeholder="Page #" min="1" />
+                <button onclick="jumpToPage()" class="btn-page">Go</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="block-details" class="details-section" style="display: none">
+          <div class="details-header">
+            <h2>Block Details</h2>
+            <button class="btn-close" onclick="closeDetails()">Close</button>
+          </div>
+          <div id="block-content" class="details-content"></div>
+        </div>
+
+        <div id="tx-details" class="details-section" style="display: none">
+          <div class="details-header">
+            <h2>Transaction Details</h2>
+            <button class="btn-close" onclick="closeDetails()">Close</button>
+          </div>
+          <div id="tx-content" class="details-content"></div>
+        </div>
+
+        <div id="address-details" class="details-section" style="display: none">
+          <div class="details-header">
+            <h2>Address</h2>
+            <button class="btn-close" onclick="closeDetails()">Close</button>
+          </div>
+          <div id="address-content" class="details-content"></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="container">
+        <p>&copy; <script>document.write(new Date().getFullYear())</script> S256 Block Explorer. Real-time blockchain data.</p>
+      </div>
+    </footer>
+
+    <!-- QR Code Modal -->
+    <div class="qr-modal" id="qr-modal">
+      <div class="qr-modal-overlay" onclick="closeQRModal()"></div>
+      <div class="qr-modal-content">
+        <div class="qr-modal-header">
+          <h3>QR Code for Address</h3>
+          <button class="qr-modal-close" onclick="closeQRModal()">&times;</button>
+        </div>
+        <div class="qr-modal-body">
+          <div class="qr-code-container">
+            <img id="qr-code-image" src="" alt="QR Code" />
+          </div>
+          <div class="qr-address-text" id="qr-address-text"></div>
+        </div>
+        <div class="qr-modal-footer">
+          <button class="btn-qr-action" onclick="copyAddressFromModal()">
+            <span>📋</span> Copy Address
+          </button>
+          <button class="btn-qr-action" onclick="downloadQRFromModal()">
+            <span>💾</span> Download QR
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transaction Details Modal -->
+    <div class="tx-modal" id="tx-modal">
+      <div class="tx-modal-overlay" onclick="closeTxModal()"></div>
+      <div class="tx-modal-content">
+        <div class="tx-modal-header">
+          <h3>Transaction Details</h3>
+          <button class="tx-modal-close" onclick="closeTxModal()">&times;</button>
+        </div>
+        <div class="tx-modal-body" id="tx-modal-body">
+          <!-- Transaction details will be populated here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Matrix Terminal Easter Egg -->
+    <div class="matrix-terminal" id="matrix-terminal">
+      <div class="terminal-container">
+        <div class="terminal-header">
+          <div class="terminal-title">S256_SECURE_TERMINAL v1.337 [ENCRYPTED]</div>
+          <button class="terminal-close" id="terminal-close">[X] CLOSE</button>
+        </div>
+        <div class="terminal-content" id="terminal-content">
+          <div class="terminal-line">Initializing secure connection...</div>
+          <div class="terminal-line">Decrypting blockchain parameters...</div>
+          <div class="terminal-line">Access granted.<span class="terminal-cursor"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Load 7-day hashrate chart
+      let hashrateChart = null;
+
+      async function loadHashrateChart() {
+        try {
+          const response = await fetch('/api/charts/hashrate?days=7');
+          const result = await response.json();
+
+          if (result.error) {
+            console.error('Error loading hashrate data:', result.error);
+            document.getElementById('hashrate-chart-loading').innerHTML = '<p style="color: var(--text-light);">Failed to load hashrate data</p>';
+            return;
+          }
+
+          // Extract data array from response
+          const data = result.data || result;
+
+          if (!Array.isArray(data) || data.length === 0) {
+            console.error('Invalid data format:', result);
+            document.getElementById('hashrate-chart-loading').innerHTML = '<p style="color: var(--text-light);">No hashrate data available</p>';
+            return;
+          }
+
+          // Hide loading overlay
+          document.getElementById('hashrate-chart-loading').style.display = 'none';
+
+          // Get theme colors
+          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          const colors = {
+            primary: isDark ? '#a300ff' : '#8000cc',
+            text: isDark ? '#e0e0e0' : '#333333',
+            grid: isDark ? 'rgba(163, 0, 255, 0.1)' : 'rgba(163, 0, 255, 0.15)'
+          };
+
+          // Prepare chart data
+          const labels = data.map(d => new Date(d.timestamp).toLocaleDateString());
+          const values = data.map(d => d.value);
+
+          const ctx = document.getElementById('hashrate-chart').getContext('2d');
+
+          if (hashrateChart) {
+            hashrateChart.destroy();
+          }
+
+          hashrateChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: 'Network Hashrate',
+                data: values,
+                borderColor: colors.primary,
+                backgroundColor: `${colors.primary}20`,
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 0
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              interaction: {
+                intersect: false,
+                mode: 'index'
+              },
+              plugins: {
+                legend: {
+                  display: false
+                },
+                tooltip: {
+                  mode: 'index',
+                  intersect: false,
+                  callbacks: {
+                    label: function(context) {
+                      return 'Hashrate: ' + formatHashrate(context.parsed.y);
+                    }
+                  }
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    color: colors.text,
+                    callback: function(value) {
+                      return formatHashrate(value);
+                    }
+                  },
+                  grid: {
+                    color: colors.grid
+                  }
+                },
+                x: {
+                  ticks: {
+                    color: colors.text,
+                    maxRotation: 0,
+                    minRotation: 0,
+                    maxTicksLimit: 8,
+                    autoSkip: true
+                  },
+                  grid: {
+                    color: colors.grid
+                  }
+                }
+              }
+            }
+          });
+        } catch (error) {
+          console.error('Error loading hashrate chart:', error);
+          document.getElementById('hashrate-chart-loading').innerHTML = '<p style="color: var(--text-light);">Failed to load hashrate data</p>';
+        }
+      }
+
+      function formatHashrate(value) {
+        if (value >= 1e15) return (value / 1e15).toFixed(2) + ' PH/s';
+        if (value >= 1e12) return (value / 1e12).toFixed(2) + ' TH/s';
+        if (value >= 1e9) return (value / 1e9).toFixed(2) + ' GH/s';
+        if (value >= 1e6) return (value / 1e6).toFixed(2) + ' MH/s';
+        if (value >= 1e3) return (value / 1e3).toFixed(2) + ' KH/s';
+        return value.toFixed(2) + ' H/s';
+      }
+
+      // Load chart when page loads
+      window.addEventListener('DOMContentLoaded', () => {
+        loadHashrateChart();
+
+        // Reload chart when theme changes
+        const themeToggle = document.getElementById('theme-toggle');
+        if (themeToggle) {
+          themeToggle.addEventListener('click', () => {
+            setTimeout(() => {
+              loadHashrateChart();
+            }, 100);
+          });
+        }
+      });
+    </script>
+
+    <script src="/script.js?v=23"></script>
+  </body>
+</html>

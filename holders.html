@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Top Holders - S256 Block Explorer</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      .holders-container {
+        max-width: 1400px;
+        margin: 100px auto 2rem;
+        padding: 0 1rem;
+      }
+
+      .holders-header {
+        margin-bottom: 2rem;
+      }
+
+      .holders-header h1 {
+        color: var(--text);
+        margin-bottom: 0.5rem;
+      }
+
+      .holders-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+
+      .stat-box {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+      }
+
+      .stat-box-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary);
+        margin-bottom: 0.5rem;
+      }
+
+      .stat-box-label {
+        color: var(--text-light);
+        font-size: 0.9rem;
+      }
+
+      .holders-table-container {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+
+      .holders-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .holders-table thead {
+        background: linear-gradient(135deg, var(--primary) 0%, #00d4ff 100%);
+        color: white;
+      }
+
+      .holders-table th {
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+
+      .holders-table tbody tr {
+        border-bottom: 1px solid var(--border);
+        transition: background 0.2s ease;
+      }
+
+      .holders-table tbody tr:hover {
+        background: rgba(163, 0, 255, 0.05);
+        cursor: pointer;
+      }
+
+      .holders-table td {
+        padding: 1rem;
+        color: var(--text);
+        vertical-align: middle;
+      }
+
+      .rank-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        font-weight: 800;
+        font-size: 1.15rem;
+        transition: all 0.3s ease;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      }
+
+      .rank-badge:hover {
+        transform: scale(1.15);
+      }
+
+      .address-cell {
+        font-family: 'Courier New', monospace;
+        color: var(--primary);
+        font-weight: 600;
+      }
+
+      .balance-cell {
+        font-weight: 700;
+        font-size: 1.1rem;
+      }
+
+      .percentage-bar {
+        width: 100%;
+        height: 6px;
+        background: var(--border);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 0.25rem;
+      }
+
+      .percentage-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary) 0%, #00d4ff 100%);
+        border-radius: 3px;
+        transition: width 0.3s ease;
+      }
+
+      .loading-container {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-light);
+      }
+
+      .spinner {
+        border: 3px solid var(--border);
+        border-top: 3px solid var(--primary);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .error-message {
+        background: rgba(255, 0, 0, 0.1);
+        border: 1px solid rgba(255, 0, 0, 0.3);
+        border-radius: 8px;
+        padding: 1rem;
+        color: #ff4444;
+        margin: 2rem 0;
+      }
+
+      @media (max-width: 768px) {
+        .holders-table {
+          font-size: 0.85rem;
+        }
+
+        .holders-table th,
+        .holders-table td {
+          padding: 0.75rem 0.5rem;
+        }
+
+        .hide-mobile {
+          display: none;
+        }
+
+        .rank-badge {
+          width: 36px;
+          height: 36px;
+          font-size: 0.95rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="container">
+        <div class="nav-brand">
+          <span class="logo">S256</span>
+          <span class="tagline">Block Explorer</span>
+        </div>
+        <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div class="nav-menu" id="nav-menu">
+          <a href="/" class="nav-link">Blocks</a>
+          <a href="/transactions.html" class="nav-link">Transactions</a>
+          <a href="/peers.html" class="nav-link">Network</a>
+          <a href="/nodemap.html" class="nav-link">Node Map</a>
+          <a href="/holders.html" class="nav-link active">Holders</a>
+          <a href="/api.html" class="nav-link">API</a>
+          <div class="nav-dropdown">
+            <a href="#" class="nav-link dropdown-toggle">Tools ▼</a>
+            <div class="dropdown-menu">
+              <a href="/mempool.html" class="dropdown-item">Mempool</a>
+              <a href="/charts.html" class="dropdown-item">Charts</a>
+            </div>
+          </div>
+        </div>
+        <div class="nav-controls" id="nav-controls">
+          <span class="pi-symbol" id="pi-easter-egg" title="π">π</span>
+          <a href="https://sha256coin.eu/" class="btn-back"
+            >Back to Main Site</a
+          >
+          <button
+            id="theme-toggle"
+            class="theme-toggle"
+            aria-label="Toggle theme"
+          >
+            <span class="theme-icon">🌙</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="holders-container">
+      <div class="holders-header">
+        <h1>💎 Top Holders</h1>
+        <p style="color: var(--text-light)">
+          Top 100 addresses ranked by S256 balance
+        </p>
+      </div>
+
+      <div class="holders-stats">
+        <div class="stat-box">
+          <div class="stat-box-value" id="total-holders">-</div>
+          <div class="stat-box-label">Total Holders</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-value" id="circulating-supply">-</div>
+          <div class="stat-box-label">Circulating Supply</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-value" id="top-holders-balance">-</div>
+          <div class="stat-box-label">Top 100 Balance</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-value" id="top-holders-percent">-</div>
+          <div class="stat-box-label">Top 100 % of Supply</div>
+        </div>
+      </div>
+
+      <div id="holders-content">
+        <div class="loading-container">
+          <div class="spinner"></div>
+          <p>Loading holders data...</p>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="container">
+        <p>&copy; <script>document.write(new Date().getFullYear())</script> S256 Block Explorer. Real-time holder statistics.</p>
+      </div>
+    </footer>
+
+    <!-- Matrix Terminal Easter Egg -->
+    <div class="matrix-terminal" id="matrix-terminal">
+      <div class="terminal-container">
+        <div class="terminal-header">
+          <div class="terminal-title">S256_SECURE_TERMINAL v1.337 [ENCRYPTED]</div>
+          <button class="terminal-close" id="terminal-close">[X] CLOSE</button>
+        </div>
+        <div class="terminal-content" id="terminal-content">
+          <div class="terminal-line">Initializing secure connection...</div>
+          <div class="terminal-line">Decrypting blockchain parameters...</div>
+          <div class="terminal-line">Access granted.<span class="terminal-cursor"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = window.location.origin;
+
+      // Theme Management
+      function initTheme() {
+        const savedTheme = localStorage.getItem("theme") || "dark";
+        document.documentElement.setAttribute("data-theme", savedTheme);
+        updateThemeIcon(savedTheme);
+      }
+
+      function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute("data-theme");
+        const newTheme = currentTheme === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", newTheme);
+        localStorage.setItem("theme", newTheme);
+        updateThemeIcon(newTheme);
+      }
+
+      function updateThemeIcon(theme) {
+        const icon = document.querySelector(".theme-icon");
+        icon.textContent = theme === "dark" ? "☀️" : "🌙";
+      }
+
+      // Load holders data
+      async function loadHolders() {
+        try {
+          const response = await fetch(`${API_BASE}/api/holders?limit=100`);
+          const data = await response.json();
+
+          if (data.error) {
+            showError(data.error);
+            return;
+          }
+
+          const holders = data.holders || [];
+          const circulatingSupply = data.circulatingSupply || 0;
+          const topHoldersBalance = data.topHoldersBalance || 0;
+
+          // Update stats
+          document.getElementById('total-holders').textContent = data.totalHolders.toLocaleString();
+          document.getElementById('circulating-supply').textContent = formatBalance(circulatingSupply);
+          document.getElementById('top-holders-balance').textContent = formatBalance(topHoldersBalance);
+          const topPercent = circulatingSupply > 0 ? Math.min((topHoldersBalance / circulatingSupply * 100), 100).toFixed(2) : 0;
+          document.getElementById('top-holders-percent').textContent = topPercent + '%';
+
+          // Render holders table
+          if (holders.length === 0) {
+            document.getElementById('holders-content').innerHTML = `
+              <div class="loading-container">
+                <h2>No Holders Data</h2>
+                <p>No address data available yet.</p>
+              </div>
+            `;
+            return;
+          }
+
+          renderHoldersTable(holders);
+        } catch (error) {
+          console.error('Error loading holders:', error);
+          showError('Failed to load holders data. Please try again later.');
+        }
+      }
+
+      function renderHoldersTable(holders) {
+        const content = document.getElementById('holders-content');
+        content.innerHTML = `
+          <div class="holders-table-container">
+            <table class="holders-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Address</th>
+                  <th>Balance</th>
+                  <th>% of Supply</th>
+                  <th class="hide-mobile">Transactions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${holders.map(holder => `
+                  <tr onclick="window.location.href='/?search=${holder.address}'">
+                    <td>
+                      <span class="rank-badge" style="${getRankStyle(holder.rank)}">
+                        ${holder.rank}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="address-cell">${truncateAddress(holder.address)}</span>
+                    </td>
+                    <td>
+                      <div class="balance-cell">${formatBalance(holder.balance)} S256</div>
+                    </td>
+                    <td>
+                      <div>${Math.min(holder.percentage, 100).toFixed(4)}%</div>
+                      <div class="percentage-bar">
+                        <div class="percentage-fill" style="width: ${Math.min(holder.percentage * 10, 100)}%"></div>
+                      </div>
+                    </td>
+                    <td class="hide-mobile">${holder.txCount.toLocaleString()}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      // Calculate gradient color from yellow (rank 1) to blue (rank 100)
+      function getRankGradientColor(rank) {
+        // Rank 1: Yellow (#FFD700 - 255, 215, 0)
+        // Rank 100: Blue (#0080FF - 0, 128, 255)
+        const startColor = { r: 255, g: 215, b: 0 };
+        const endColor = { r: 0, g: 128, b: 255 };
+
+        // Calculate interpolation factor (0 to 1)
+        const factor = Math.min(Math.max((rank - 1) / 99, 0), 1);
+
+        // Interpolate each color channel
+        const r = Math.round(startColor.r + (endColor.r - startColor.r) * factor);
+        const g = Math.round(startColor.g + (endColor.g - startColor.g) * factor);
+        const b = Math.round(startColor.b + (endColor.b - startColor.b) * factor);
+
+        // Create gradient background
+        const lightness = 0.85; // Make end color lighter
+        const r2 = Math.round(r + (255 - r) * lightness * factor);
+        const g2 = Math.round(g + (255 - g) * lightness * factor);
+        const b2 = Math.round(b + (255 - b) * lightness * factor);
+
+        return {
+          background: `linear-gradient(135deg, rgb(${r}, ${g}, ${b}) 0%, rgb(${r2}, ${g2}, ${b2}) 100%)`,
+          color: factor < 0.5 ? '#000' : '#fff', // Dark text for yellow, white for blue
+          shadow: `0 4px 12px rgba(${r}, ${g}, ${b}, 0.4)`
+        };
+      }
+
+      function getRankStyle(rank) {
+        const gradientColors = getRankGradientColor(rank);
+        return `background: ${gradientColors.background}; color: ${gradientColors.color}; box-shadow: ${gradientColors.shadow};`;
+      }
+
+      function truncateAddress(address) {
+        if (!address) return 'N/A';
+        if (address.length <= 20) return address;
+        return `${address.substring(0, 10)}...${address.substring(address.length - 10)}`;
+      }
+
+      function formatBalance(balance) {
+        if (balance >= 1000000) {
+          return (balance / 1000000).toFixed(2) + 'M';
+        } else if (balance >= 1000) {
+          return (balance / 1000).toFixed(2) + 'K';
+        }
+        return balance.toFixed(2);
+      }
+
+      function showError(message) {
+        document.getElementById('holders-content').innerHTML = `
+          <div class="error-message">
+            <strong>Error:</strong> ${message}
+          </div>
+        `;
+        document.getElementById('total-holders').textContent = '0';
+        document.getElementById('circulating-supply').textContent = '0';
+        document.getElementById('top-holders-balance').textContent = '0';
+        document.getElementById('top-holders-percent').textContent = '0%';
+      }
+
+      // Hamburger Menu Toggle
+      function toggleMobileMenu() {
+        const hamburger = document.getElementById("hamburger");
+        const navMenu = document.getElementById("nav-menu");
+        const navControls = document.getElementById("nav-controls");
+
+        hamburger.classList.toggle("active");
+        navMenu.classList.toggle("active");
+        navControls.classList.toggle("active");
+      }
+
+      // Matrix Terminal Easter Egg
+      let terminalContentLoaded = false;
+
+      async function openMatrixTerminal() {
+        const terminal = document.getElementById("matrix-terminal");
+        terminal.classList.add("active");
+
+        if (!terminalContentLoaded) {
+          await loadCoinSupply();
+          terminalContentLoaded = true;
+        }
+      }
+
+      function closeMatrixTerminal() {
+        const terminal = document.getElementById("matrix-terminal");
+        terminal.classList.remove("active");
+      }
+
+      async function loadCoinSupply() {
+        const content = document.getElementById("terminal-content");
+
+        try {
+          content.innerHTML = `
+            <div class="terminal-line">Initializing secure connection...</div>
+            <div class="terminal-line">Decrypting blockchain parameters...</div>
+            <div class="terminal-line">Accessing S256_SUPPLY.dat...</div>
+            <div class="terminal-line">Loading...</div>
+          `;
+
+          const response = await fetch('/COIN_SUPPLY.txt');
+          const text = await response.text();
+
+          setTimeout(() => {
+            displayTerminalContent(text);
+          }, 1000);
+
+        } catch (error) {
+          content.innerHTML = `
+            <div class="terminal-line">ERROR: Unable to access COIN_SUPPLY.txt</div>
+            <div class="terminal-line">Connection failed: ${error.message}</div>
+            <div class="terminal-line"><span class="terminal-cursor"></span></div>
+          `;
+        }
+      }
+
+      function displayTerminalContent(text) {
+        const content = document.getElementById("terminal-content");
+        const lines = text.split('\n');
+
+        content.innerHTML = `
+          <div class="terminal-line">Connection established...</div>
+          <div class="terminal-line">Decryption complete.</div>
+          <div class="terminal-line">Displaying: COIN_SUPPLY.txt</div>
+          <div class="terminal-line">═══════════════════════════════════════════════════════════════════</div>
+          <br>
+        `;
+
+        lines.forEach((line, index) => {
+          setTimeout(() => {
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'terminal-line';
+            lineDiv.textContent = line;
+            lineDiv.style.animationDelay = '0s';
+            content.appendChild(lineDiv);
+            content.scrollTop = content.scrollHeight;
+          }, index * 20);
+        });
+
+        setTimeout(() => {
+          const cursorDiv = document.createElement('div');
+          cursorDiv.className = 'terminal-line';
+          cursorDiv.innerHTML = '<br><span class="terminal-cursor"></span>';
+          content.appendChild(cursorDiv);
+          content.scrollTop = content.scrollHeight;
+        }, lines.length * 20 + 100);
+      }
+
+      // Initialize
+      document.addEventListener("DOMContentLoaded", () => {
+        initTheme();
+        loadHolders();
+
+        // Hamburger menu
+        const hamburger = document.getElementById("hamburger");
+        if (hamburger) {
+          hamburger.addEventListener("click", toggleMobileMenu);
+        }
+
+        // Close mobile menu when clicking a link
+        const navLinks = document.querySelectorAll(".nav-link");
+        navLinks.forEach(link => {
+          link.addEventListener("click", () => {
+            const navMenu = document.getElementById("nav-menu");
+            const navControls = document.getElementById("nav-controls");
+            const hamburger = document.getElementById("hamburger");
+
+            if (navMenu && navMenu.classList.contains("active")) {
+              hamburger.classList.remove("active");
+              navMenu.classList.remove("active");
+              navControls.classList.remove("active");
+            }
+          });
+        });
+
+        // Matrix Terminal Easter Egg
+        const piSymbol = document.getElementById("pi-easter-egg");
+        const terminalClose = document.getElementById("terminal-close");
+        const matrixTerminal = document.getElementById("matrix-terminal");
+
+        if (piSymbol) {
+          piSymbol.addEventListener("click", openMatrixTerminal);
+        }
+
+        if (terminalClose) {
+          terminalClose.addEventListener("click", closeMatrixTerminal);
+        }
+
+        if (matrixTerminal) {
+          matrixTerminal.addEventListener("click", (e) => {
+            if (e.target === matrixTerminal) {
+              closeMatrixTerminal();
+            }
+          });
+        }
+
+        // Theme toggle
+        document
+          .getElementById("theme-toggle")
+          .addEventListener("click", toggleTheme);
+
+        // Auto-refresh every 5 minutes
+        setInterval(loadHolders, 300000);
+      });
+    </script>
+  </body>
+</html>

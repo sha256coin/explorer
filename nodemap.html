@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Node Map - S256 Block Explorer</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/static/leaflet.css" />
+    <style>
+      .map-container {
+        max-width: 1600px;
+        margin: 100px auto 2rem;
+        padding: 0 1rem;
+      }
+
+      .map-header {
+        margin-bottom: 2rem;
+        text-align: center;
+      }
+
+      .map-header h1 {
+        color: var(--text);
+        margin-bottom: 0.5rem;
+        font-size: 2.5rem;
+      }
+
+      .map-header p {
+        color: var(--text-light);
+        font-size: 1.1rem;
+      }
+
+      .map-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+
+      .stat-box {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .stat-box:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(163, 0, 255, 0.2);
+      }
+
+      .stat-box-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: var(--gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.5rem;
+      }
+
+      .stat-box-label {
+        color: var(--text-light);
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .network-map-wrapper {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: var(--shadow-lg);
+      }
+
+      .map-top-bar {
+        padding: 1.5rem;
+        background: linear-gradient(135deg, var(--primary) 0%, #00d4ff 100%);
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .map-top-bar h2 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+      }
+
+      .map-legend {
+        display: flex;
+        gap: 1.5rem;
+        align-items: center;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+      }
+
+      .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #a300ff 0%, #00d4ff 100%);
+        box-shadow: 0 0 10px rgba(163, 0, 255, 0.6);
+      }
+
+      #node-map {
+        height: 600px;
+        width: 100%;
+        background: #0b0f14;
+      }
+
+      /* Custom Leaflet marker styles */
+      .custom-marker {
+        background: linear-gradient(135deg, #a300ff 0%, #00d4ff 100%);
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        box-shadow: 0 0 15px rgba(163, 0, 255, 0.6), 0 0 30px rgba(0, 212, 255, 0.4);
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% {
+          box-shadow: 0 0 15px rgba(163, 0, 255, 0.6), 0 0 30px rgba(0, 212, 255, 0.4);
+          transform: scale(1);
+        }
+        50% {
+          box-shadow: 0 0 25px rgba(163, 0, 255, 0.8), 0 0 50px rgba(0, 212, 255, 0.6);
+          transform: scale(1.1);
+        }
+      }
+
+      /* Leaflet popup custom styling */
+      .leaflet-popup-content-wrapper {
+        background: var(--bg-card);
+        color: var(--text);
+        border: 2px solid var(--primary);
+        border-radius: 12px;
+        box-shadow: 0 0 30px rgba(163, 0, 255, 0.5);
+        padding: 0;
+      }
+
+      .leaflet-popup-tip {
+        background: var(--bg-card);
+        border: 2px solid var(--primary);
+      }
+
+      .popup-header {
+        background: linear-gradient(135deg, var(--primary) 0%, #00d4ff 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 10px 10px 0 0;
+        font-weight: 600;
+        font-size: 1.1rem;
+      }
+
+      .popup-body {
+        padding: 1rem;
+      }
+
+      .popup-stat {
+        display: flex;
+        justify-content: space-between;
+        margin: 0.5rem 0;
+        padding: 0.5rem;
+        background: rgba(163, 0, 255, 0.05);
+        border-radius: 6px;
+      }
+
+      .popup-stat-label {
+        color: var(--text-light);
+        font-size: 0.85rem;
+      }
+
+      .popup-stat-value {
+        color: var(--primary);
+        font-weight: 600;
+      }
+
+      .popup-peers-list {
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--border);
+      }
+
+      .popup-peer {
+        font-family: 'Courier New', monospace;
+        font-size: 0.8rem;
+        color: var(--text-light);
+        margin: 0.3rem 0;
+        padding: 0.25rem 0.5rem;
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+      }
+
+      .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        color: white;
+      }
+
+      .loading-content {
+        text-align: center;
+      }
+
+      .spinner {
+        border: 4px solid rgba(163, 0, 255, 0.3);
+        border-top: 4px solid var(--primary);
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      @media (max-width: 768px) {
+        #node-map {
+          height: 400px;
+        }
+
+        .map-header h1 {
+          font-size: 2rem;
+        }
+
+        .map-legend {
+          flex-direction: column;
+          gap: 0.5rem;
+          align-items: flex-start;
+        }
+
+        .stat-box-value {
+          font-size: 2rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="container">
+        <div class="nav-brand">
+          <span class="logo">S256</span>
+          <span class="tagline">Block Explorer</span>
+        </div>
+        <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div class="nav-menu" id="nav-menu">
+          <a href="/" class="nav-link">Blocks</a>
+          <a href="/transactions.html" class="nav-link">Transactions</a>
+          <a href="/peers.html" class="nav-link">Network</a>
+          <a href="/nodemap.html" class="nav-link active">Node Map</a>
+          <a href="/holders.html" class="nav-link">Holders</a>
+          <a href="/api.html" class="nav-link">API</a>
+          <div class="nav-dropdown">
+            <a href="#" class="nav-link dropdown-toggle">Tools ▼</a>
+            <div class="dropdown-menu">
+              <a href="/mempool.html" class="dropdown-item">Mempool</a>
+              <a href="/charts.html" class="dropdown-item">Charts</a>
+            </div>
+          </div>
+        </div>
+        <div class="nav-controls" id="nav-controls">
+          <span class="pi-symbol" id="pi-easter-egg" title="π">π</span>
+          <a href="https://sha256coin.eu/" class="btn-back">Back to Main Site</a>
+          <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+            <span class="theme-icon">🌙</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="map-container">
+      <div class="map-header">
+        <h1>🌍 Global Node Distribution</h1>
+        <p>Real-time visualization of S256 network nodes worldwide</p>
+      </div>
+
+      <div class="map-stats">
+        <div class="stat-box">
+          <div class="stat-box-value" id="total-nodes">-</div>
+          <div class="stat-box-label">Total Nodes</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-value" id="total-countries">-</div>
+          <div class="stat-box-label">Countries</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-value" id="avg-ping">-</div>
+          <div class="stat-box-label">Avg Ping (ms)</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-value" id="network-version">-</div>
+          <div class="stat-box-label">Network Version</div>
+        </div>
+      </div>
+
+      <div class="network-map-wrapper">
+        <div class="map-top-bar">
+          <h2>🗺️ Live Node Map</h2>
+          <div class="map-legend">
+            <div class="legend-item">
+              <div class="legend-dot"></div>
+              <span>Active Node</span>
+            </div>
+            <div class="legend-item">
+              <span style="font-size: 0.85rem;">● Larger = More Peers</span>
+            </div>
+          </div>
+        </div>
+        <div style="position: relative;">
+          <div id="loading-overlay" class="loading-overlay">
+            <div class="loading-content">
+              <div class="spinner"></div>
+              <p>Loading node data...</p>
+            </div>
+          </div>
+          <div id="node-map"></div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="container">
+        <p>&copy; <script>document.write(new Date().getFullYear())</script> S256 Block Explorer. Real-time network data.</p>
+      </div>
+    </footer>
+
+    <!-- Matrix Terminal Easter Egg -->
+    <div class="matrix-terminal" id="matrix-terminal">
+      <div class="terminal-container">
+        <div class="terminal-header">
+          <div class="terminal-title">S256_SECURE_TERMINAL v1.337 [ENCRYPTED]</div>
+          <button class="terminal-close" id="terminal-close">[X] CLOSE</button>
+        </div>
+        <div class="terminal-content" id="terminal-content">
+          <div class="terminal-line">Initializing secure connection...</div>
+          <div class="terminal-line">Decrypting blockchain parameters...</div>
+          <div class="terminal-line">Access granted.<span class="terminal-cursor"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/leaflet.js"></script>
+    <script>
+      const API_BASE = window.location.origin;
+      let map;
+      let markers = [];
+
+      // Country coordinates (capitals for better accuracy)
+      const countryCoords = {
+        'US': [37.0902, -95.7129],
+        'FR': [46.6034, 1.8883],
+        'DE': [51.1657, 10.4515],
+        'IS': [64.9631, -19.0208],
+        'RU': [61.5240, 105.3188],
+        'NL': [52.3702, 4.8952],
+        'RO': [45.9432, 24.9668],
+        'GB': [51.5074, -0.1278],
+        'CN': [35.8617, 104.1954],
+        'JP': [36.2048, 138.2529],
+        'AU': [-25.2744, 133.7751],
+        'CA': [56.1304, -106.3468],
+        'BR': [-14.2350, -51.9253],
+        'IN': [20.5937, 78.9629],
+        'IT': [41.8719, 12.5674],
+        'ES': [40.4637, -3.7492],
+        'SE': [60.1282, 18.6435],
+        'PL': [51.9194, 19.1451],
+        'UA': [48.3794, 31.1656],
+        'KR': [35.9078, 127.7669]
+      };
+
+      const countryNames = {
+        'US': 'United States',
+        'FR': 'France',
+        'DE': 'Germany',
+        'IS': 'Iceland',
+        'RU': 'Russia',
+        'NL': 'Netherlands',
+        'RO': 'Romania',
+        'GB': 'United Kingdom',
+        'CN': 'China',
+        'JP': 'Japan',
+        'AU': 'Australia',
+        'CA': 'Canada',
+        'BR': 'Brazil',
+        'IN': 'India',
+        'IT': 'Italy',
+        'ES': 'Spain',
+        'SE': 'Sweden',
+        'PL': 'Poland',
+        'UA': 'Ukraine',
+        'KR': 'South Korea'
+      };
+
+      // Initialize map
+      function initMap() {
+        map = L.map('node-map', {
+          center: [30, 0],
+          zoom: 2,
+          minZoom: 2,
+          maxZoom: 10,
+          worldCopyJump: true,
+          zoomControl: true
+        });
+
+        // Dark theme tiles from CartoDB
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          subdomains: 'abcd',
+          maxZoom: 20
+        }).addTo(map);
+      }
+
+      // Add peer markers to map
+      function addPeerMarkers(peers) {
+        // Clear existing markers
+        markers.forEach(marker => map.removeLayer(marker));
+        markers = [];
+
+        // Track coordinate usage to offset duplicates
+        const coordCounts = {};
+
+        // Add individual marker for each peer
+        peers.forEach(peer => {
+          // Get coordinates for this peer
+          let coords = null;
+
+          if (peer.lat && peer.lon) {
+            // Use actual geolocation coordinates
+            coords = [peer.lat, peer.lon];
+          } else if (peer.countryCode && countryCoords[peer.countryCode]) {
+            // Fallback to country center
+            coords = countryCoords[peer.countryCode];
+          }
+
+          if (!coords) return; // Skip if no coordinates available
+
+          // Create coordinate key for tracking duplicates
+          const coordKey = `${coords[0].toFixed(4)},${coords[1].toFixed(4)}`;
+
+          // Offset duplicate coordinates slightly in a circle pattern
+          if (coordCounts[coordKey]) {
+            const index = coordCounts[coordKey];
+            const angle = (index * 360 / 8) * (Math.PI / 180); // Spread in circle
+            const offset = 0.05; // Small offset in degrees (~5km)
+            coords = [
+              coords[0] + (offset * Math.cos(angle)),
+              coords[1] + (offset * Math.sin(angle))
+            ];
+            coordCounts[coordKey]++;
+          } else {
+            coordCounts[coordKey] = 1;
+          }
+
+          // Extract version from subver (e.g., "/S256:1.0.5/" -> "1.0.5")
+          let version = 'N/A';
+          if (peer.subver) {
+            const versionMatch = peer.subver.match(/:([\d.]+)/);
+            if (versionMatch) version = versionMatch[1];
+          }
+
+          // Determine IPv4 or IPv6
+          const ipType = peer.network === 'ipv6' ? 'IPv6' : 'IPv4';
+
+          // Create label
+          const label = `[${version}:${ipType}]`;
+
+          // Create custom marker with label
+          const markerSize = 20;
+          const marker = L.marker(coords, {
+            icon: L.divIcon({
+              className: 'custom-div-icon',
+              html: `
+                <div style="display: flex; align-items: center; white-space: nowrap;">
+                  <div class="custom-marker" style="width: ${markerSize}px; height: ${markerSize}px;"></div>
+                  <span style="margin-left: 8px; font-size: 11px; font-weight: 600; color: var(--primary); background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${label}</span>
+                </div>
+              `,
+              iconSize: [markerSize + 100, markerSize],
+              iconAnchor: [markerSize / 2, markerSize / 2]
+            })
+          });
+
+          // Create popup content
+          const ping = peer.pingtime ? (peer.pingtime * 1000).toFixed(0) : 'N/A';
+          const popupContent = `
+            <div class="popup-header">
+              ${peer.addr || 'Unknown'}
+            </div>
+            <div class="popup-body">
+              <div class="popup-stat">
+                <span class="popup-stat-label">Country</span>
+                <span class="popup-stat-value">${countryNames[peer.countryCode] || peer.countryCode || 'Unknown'}</span>
+              </div>
+              <div class="popup-stat">
+                <span class="popup-stat-label">Ping</span>
+                <span class="popup-stat-value">${ping} ms</span>
+              </div>
+              <div class="popup-stat">
+                <span class="popup-stat-label">Version</span>
+                <span class="popup-stat-value">${peer.subver || 'N/A'}</span>
+              </div>
+              <div class="popup-stat">
+                <span class="popup-stat-label">Direction</span>
+                <span class="popup-stat-value">${peer.inbound ? 'Inbound' : 'Outbound'}</span>
+              </div>
+            </div>
+          `;
+
+          marker.bindPopup(popupContent, {
+            maxWidth: 300,
+            className: 'custom-popup'
+          });
+
+          marker.addTo(map);
+          markers.push(marker);
+        });
+
+        // Hide loading overlay
+        document.getElementById('loading-overlay').style.display = 'none';
+      }
+
+      // Theme Management
+      function initTheme() {
+        const savedTheme = localStorage.getItem("theme") || "dark";
+        document.documentElement.setAttribute("data-theme", savedTheme);
+        updateThemeIcon(savedTheme);
+      }
+
+      function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute("data-theme");
+        const newTheme = currentTheme === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", newTheme);
+        localStorage.setItem("theme", newTheme);
+        updateThemeIcon(newTheme);
+      }
+
+      function updateThemeIcon(theme) {
+        const icon = document.querySelector(".theme-icon");
+        icon.textContent = theme === "dark" ? "☀️" : "🌙";
+      }
+
+      // Load peers data
+      async function loadPeers() {
+        try {
+          const response = await fetch(`${API_BASE}/api/peers`);
+          const data = await response.json();
+
+          if (data.error) {
+            throw new Error(data.error);
+          }
+
+          const peers = data.peers || [];
+
+          // Update stats
+          const countries = new Set(peers.map(p => p.countryCode).filter(Boolean));
+          const avgPing = peers.length > 0
+            ? (peers.reduce((sum, p) => sum + (p.pingtime || 0), 0) / peers.length * 1000).toFixed(0)
+            : 0;
+          const commonVersion = peers.length > 0 ? (peers[0].subver || 'N/A').replace(/\//g, ' ').trim() : 'N/A';
+
+          document.getElementById('total-nodes').textContent = peers.length;
+          document.getElementById('total-countries').textContent = countries.size;
+          document.getElementById('avg-ping').textContent = avgPing;
+          document.getElementById('network-version').textContent = commonVersion.split(' ')[0] || 'N/A';
+
+          // Update map
+          if (map && peers.length > 0) {
+            addPeerMarkers(peers);
+          } else if (peers.length === 0) {
+            document.getElementById('loading-overlay').innerHTML = `
+              <div class="loading-content">
+                <p>No active nodes found</p>
+              </div>
+            `;
+          }
+        } catch (error) {
+          console.error('Error loading peers:', error);
+          document.getElementById('loading-overlay').innerHTML = `
+            <div class="loading-content">
+              <p style="color: #ff4444;">Failed to load node data</p>
+              <p style="font-size: 0.9rem;">${error.message}</p>
+            </div>
+          `;
+        }
+      }
+
+      // Hamburger Menu Toggle
+      function toggleMobileMenu() {
+        const hamburger = document.getElementById("hamburger");
+        const navMenu = document.getElementById("nav-menu");
+        const navControls = document.getElementById("nav-controls");
+
+        hamburger.classList.toggle("active");
+        navMenu.classList.toggle("active");
+        navControls.classList.toggle("active");
+      }
+
+      // Matrix Terminal Easter Egg
+      let terminalContentLoaded = false;
+
+      async function openMatrixTerminal() {
+        const terminal = document.getElementById("matrix-terminal");
+        terminal.classList.add("active");
+
+        if (!terminalContentLoaded) {
+          await loadCoinSupply();
+          terminalContentLoaded = true;
+        }
+      }
+
+      function closeMatrixTerminal() {
+        const terminal = document.getElementById("matrix-terminal");
+        terminal.classList.remove("active");
+      }
+
+      async function loadCoinSupply() {
+        const content = document.getElementById("terminal-content");
+
+        try {
+          content.innerHTML = `
+            <div class="terminal-line">Initializing secure connection...</div>
+            <div class="terminal-line">Decrypting blockchain parameters...</div>
+            <div class="terminal-line">Accessing S256_SUPPLY.dat...</div>
+            <div class="terminal-line">Loading...</div>
+          `;
+
+          const response = await fetch('/COIN_SUPPLY.txt');
+          const text = await response.text();
+
+          setTimeout(() => {
+            displayTerminalContent(text);
+          }, 1000);
+
+        } catch (error) {
+          content.innerHTML = `
+            <div class="terminal-line">ERROR: Unable to access COIN_SUPPLY.txt</div>
+            <div class="terminal-line">Connection failed: ${error.message}</div>
+            <div class="terminal-line"><span class="terminal-cursor"></span></div>
+          `;
+        }
+      }
+
+      function displayTerminalContent(text) {
+        const content = document.getElementById("terminal-content");
+        const lines = text.split('\n');
+
+        content.innerHTML = `
+          <div class="terminal-line">Connection established...</div>
+          <div class="terminal-line">Decryption complete.</div>
+          <div class="terminal-line">Displaying: COIN_SUPPLY.txt</div>
+          <div class="terminal-line">═══════════════════════════════════════════════════════════════════</div>
+          <br>
+        `;
+
+        lines.forEach((line, index) => {
+          setTimeout(() => {
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'terminal-line';
+            lineDiv.textContent = line;
+            content.appendChild(lineDiv);
+            content.scrollTop = content.scrollHeight;
+          }, index * 20);
+        });
+
+        setTimeout(() => {
+          const cursorDiv = document.createElement('div');
+          cursorDiv.className = 'terminal-line';
+          cursorDiv.innerHTML = '<br><span class="terminal-cursor"></span>';
+          content.appendChild(cursorDiv);
+          content.scrollTop = content.scrollHeight;
+        }, lines.length * 20 + 100);
+      }
+
+      // Initialize
+      document.addEventListener("DOMContentLoaded", () => {
+        initTheme();
+        initMap();
+        loadPeers();
+
+        // Hamburger menu
+        const hamburger = document.getElementById("hamburger");
+        if (hamburger) {
+          hamburger.addEventListener("click", toggleMobileMenu);
+        }
+
+        // Close mobile menu when clicking a link
+        const navLinks = document.querySelectorAll(".nav-link");
+        navLinks.forEach(link => {
+          link.addEventListener("click", () => {
+            const navMenu = document.getElementById("nav-menu");
+            const navControls = document.getElementById("nav-controls");
+            const hamburger = document.getElementById("hamburger");
+
+            if (navMenu && navMenu.classList.contains("active")) {
+              hamburger.classList.remove("active");
+              navMenu.classList.remove("active");
+              navControls.classList.remove("active");
+            }
+          });
+        });
+
+        // Matrix Terminal Easter Egg
+        const piSymbol = document.getElementById("pi-easter-egg");
+        const terminalClose = document.getElementById("terminal-close");
+        const matrixTerminal = document.getElementById("matrix-terminal");
+
+        if (piSymbol) {
+          piSymbol.addEventListener("click", openMatrixTerminal);
+        }
+
+        if (terminalClose) {
+          terminalClose.addEventListener("click", closeMatrixTerminal);
+        }
+
+        if (matrixTerminal) {
+          matrixTerminal.addEventListener("click", (e) => {
+            if (e.target === matrixTerminal) {
+              closeMatrixTerminal();
+            }
+          });
+        }
+
+        // Theme toggle
+        document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadPeers, 30000);
+      });
+    </script>
+  </body>
+</html>

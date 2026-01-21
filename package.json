@@ -1,0 +1,38 @@
+{
+  "name": "s256-block-explorer",
+  "version": "2.0.0",
+  "description": "Block Explorer for S256 (SHA256 Coin) with MongoDB",
+  "main": "server-mongodb.js",
+  "scripts": {
+    "start": "node server-mongodb.js",
+    "dev": "nodemon server-mongodb.js",
+    "sync": "node sync.js",
+    "sync:dev": "nodemon sync.js",
+    "start:simple": "node server.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop ecosystem.config.js",
+    "pm2:restart": "pm2 restart ecosystem.config.js"
+  },
+  "keywords": [
+    "s256",
+    "blockchain",
+    "explorer",
+    "cryptocurrency",
+    "mongodb"
+  ],
+  "author": "S256 Project",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "geoip-lite": "^1.4.10",
+    "helmet": "^7.1.0",
+    "mongoose": "^8.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

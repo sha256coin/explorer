@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recent Transactions - S256 Block Explorer</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
+    <link rel="stylesheet" href="/styles.css?v=16" />
+    <style>
+      .transactions-container {
+        max-width: 1600px;
+        margin: 100px auto 2rem;
+        padding: 0 1rem;
+      }
+
+      .transactions-header {
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 2rem;
+        flex-wrap: wrap;
+      }
+
+      .transactions-header-text h1 {
+        color: var(--text);
+        margin-bottom: 0.5rem;
+      }
+
+      .header-search-bar {
+        display: flex;
+        gap: 0.5rem;
+        flex: 1;
+        max-width: 500px;
+        min-width: 300px;
+      }
+
+      .header-search-bar input {
+        flex: 1;
+        padding: 0.75rem 1.25rem;
+        border: 2px solid var(--primary);
+        border-radius: var(--radius-sm);
+        background: var(--bg-card);
+        color: var(--text);
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+      }
+
+      .header-search-bar input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+      }
+
+      .header-search-bar input::placeholder {
+        color: var(--text-light);
+      }
+
+      .btn-header-search {
+        padding: 0.75rem 1.5rem;
+        background: var(--gradient);
+        color: white;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+      }
+
+      .btn-header-search:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(163, 0, 255, 0.3);
+      }
+
+      .btn-header-search:active {
+        transform: translateY(0);
+      }
+
+      .transactions-table-container {
+        background: var(--bg-card);
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+
+      .transactions-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .transactions-table thead {
+        background: linear-gradient(135deg, var(--primary) 0%, #00d4ff 100%);
+        color: white;
+      }
+
+      .transactions-table th {
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+        white-space: nowrap;
+      }
+
+      .transactions-table tbody tr {
+        border-bottom: 1px solid rgba(163, 0, 255, 0.1);
+        transition: all 0.2s ease;
+      }
+
+      .transactions-table tbody tr:hover {
+        background: rgba(163, 0, 255, 0.08);
+        cursor: pointer;
+        transform: scale(1.01);
+      }
+
+      .transactions-table td {
+        padding: 1rem;
+        color: var(--text);
+        vertical-align: middle;
+      }
+
+      .tx-hash {
+        font-family: 'Courier New', monospace;
+        color: var(--primary);
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+
+      .block-link {
+        color: var(--accent);
+        font-weight: 600;
+        transition: color 0.2s;
+      }
+
+      .block-link:hover {
+        color: var(--primary);
+        text-decoration: underline;
+      }
+
+      .tx-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .badge-coinbase {
+        background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+        color: #000;
+        box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+      }
+
+      .badge-regular {
+        background: linear-gradient(135deg, #00d4ff 0%, #0080ff 100%);
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(0, 212, 255, 0.3);
+      }
+
+      .value-cell {
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: var(--primary);
+      }
+
+      .confirmations-cell {
+        font-weight: 600;
+        color: var(--text-light);
+      }
+
+      .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 2rem 0;
+        padding: 1rem;
+      }
+
+      .page-btn {
+        padding: 0.5rem 1rem;
+        background: var(--bg-card);
+        border: 2px solid var(--primary);
+        border-radius: var(--radius-sm);
+        color: var(--text);
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .page-btn:hover:not(.disabled) {
+        background: var(--primary);
+        color: white;
+        transform: translateY(-2px);
+      }
+
+      .page-btn.active {
+        background: var(--primary);
+        color: white;
+      }
+
+      .page-btn.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .page-info {
+        color: var(--text-light);
+        font-weight: 600;
+        padding: 0 1rem;
+      }
+
+      .loading-container {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-light);
+      }
+
+      .spinner {
+        border: 3px solid rgba(163, 0, 255, 0.2);
+        border-top: 3px solid var(--primary);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .error-message {
+        background: rgba(255, 0, 0, 0.1);
+        border: 1px solid rgba(255, 0, 0, 0.3);
+        border-radius: var(--radius-sm);
+        padding: 1rem;
+        color: #ff4444;
+        margin: 2rem 0;
+      }
+
+      @media (max-width: 1024px) {
+        .hide-tablet {
+          display: none;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .transactions-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .header-search-bar {
+          max-width: 100%;
+          min-width: 100%;
+        }
+
+        .transactions-table {
+          font-size: 0.85rem;
+        }
+
+        .transactions-table th,
+        .transactions-table td {
+          padding: 0.75rem 0.5rem;
+        }
+
+        .hide-mobile {
+          display: none;
+        }
+
+        .tx-badge {
+          font-size: 0.65rem;
+          padding: 0.2rem 0.5rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="container">
+        <div class="nav-brand">
+          <span class="logo">S256</span>
+          <span class="tagline">Block Explorer</span>
+        </div>
+        <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div class="nav-menu" id="nav-menu">
+          <a href="/" class="nav-link">Blocks</a>
+          <a href="/transactions.html" class="nav-link active">Transactions</a>
+          <a href="/peers.html" class="nav-link">Network</a>
+          <a href="/nodemap.html" class="nav-link">Node Map</a>
+          <a href="/holders.html" class="nav-link">Holders</a>
+          <a href="/api.html" class="nav-link">API</a>
+          <div class="nav-dropdown">
+            <a href="#" class="nav-link dropdown-toggle">Tools ▼</a>
+            <div class="dropdown-menu">
+              <a href="/mempool.html" class="dropdown-item">Mempool</a>
+              <a href="/charts.html" class="dropdown-item">Charts</a>
+            </div>
+          </div>
+        </div>
+        <div class="nav-controls" id="nav-controls">
+          <span class="pi-symbol" id="pi-easter-egg" title="π">π</span>
+          <a href="https://sha256coin.eu/" class="btn-back">Back to Main Site</a>
+          <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+            <span class="theme-icon">🌙</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="transactions-container">
+      <div class="transactions-header">
+        <div class="transactions-header-text">
+          <h1>⚡ Recent Transactions</h1>
+          <p style="color: var(--text-light)">
+            Latest transactions on the S256 blockchain
+          </p>
+        </div>
+        <div class="header-search-bar">
+          <input
+            type="text"
+            id="header-search"
+            placeholder="Search Block, Transaction, or Address..."
+          />
+          <button id="header-search-btn" class="btn-header-search">Search</button>
+        </div>
+      </div>
+
+      <div id="transactions-content">
+        <div class="loading-container">
+          <div class="spinner"></div>
+          <p>Loading transactions...</p>
+        </div>
+      </div>
+
+      <div id="pagination-container"></div>
+    </div>
+
+    <footer class="footer">
+      <div class="container">
+        <p>&copy; <script>document.write(new Date().getFullYear())</script> S256 Block Explorer. Real-time transaction data.</p>
+      </div>
+    </footer>
+
+    <!-- Matrix Terminal Easter Egg -->
+    <div class="matrix-terminal" id="matrix-terminal">
+      <div class="terminal-container">
+        <div class="terminal-header">
+          <div class="terminal-title">S256_SECURE_TERMINAL v1.337 [ENCRYPTED]</div>
+          <button class="terminal-close" id="terminal-close">[X] CLOSE</button>
+        </div>
+        <div class="terminal-content" id="terminal-content">
+          <div class="terminal-line">Initializing secure connection...</div>
+          <div class="terminal-line">Decrypting blockchain parameters...</div>
+          <div class="terminal-line">Access granted.<span class="terminal-cursor"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = window.location.origin;
+      let currentPage = 1;
+      const txsPerPage = 20;
+
+      // Theme Management
+      function initTheme() {
+        const savedTheme = localStorage.getItem("theme") || "dark";
+        document.documentElement.setAttribute("data-theme", savedTheme);
+        updateThemeIcon(savedTheme);
+      }
+
+      function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute("data-theme");
+        const newTheme = currentTheme === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", newTheme);
+        localStorage.setItem("theme", newTheme);
+        updateThemeIcon(newTheme);
+      }
+
+      function updateThemeIcon(theme) {
+        const icon = document.querySelector(".theme-icon");
+        icon.textContent = theme === "dark" ? "☀️" : "🌙";
+      }
+
+      // Load transactions
+      async function loadTransactions(page = 1) {
+        try {
+          currentPage = page;
+          const response = await fetch(`${API_BASE}/api/transactions/recent/${txsPerPage}?page=${page}`);
+          const transactions = await response.json();
+
+          if (transactions.error) {
+            showError(transactions.error);
+            return;
+          }
+
+          if (transactions.length === 0) {
+            document.getElementById('transactions-content').innerHTML = `
+              <div class="loading-container">
+                <h2>No Transactions</h2>
+                <p>No transaction data available yet.</p>
+              </div>
+            `;
+            return;
+          }
+
+          renderTransactionsTable(transactions);
+          renderPagination(page);
+        } catch (error) {
+          console.error('Error loading transactions:', error);
+          showError('Failed to load transactions. Please try again later.');
+        }
+      }
+
+      function renderTransactionsTable(transactions) {
+        const content = document.getElementById('transactions-content');
+        content.innerHTML = `
+          <div class="transactions-table-container">
+            <table class="transactions-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Transaction Hash</th>
+                  <th>Block</th>
+                  <th class="hide-mobile">Time</th>
+                  <th class="hide-tablet">Size</th>
+                  <th>Value</th>
+                  <th class="hide-mobile">Confirmations</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${transactions.map(tx => `
+                  <tr onclick="window.location.href='/tx/${tx.txid}'">
+                    <td>
+                      <span class="tx-badge ${tx.isCoinbase ? 'badge-coinbase' : 'badge-regular'}">
+                        ${tx.isCoinbase ? '⛏️ Coinbase' : '💸 Transfer'}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="tx-hash">${truncateHash(tx.txid)}</span>
+                    </td>
+                    <td>
+                      <a href="/block/${tx.blockheight}" class="block-link" onclick="event.stopPropagation()">
+                        ${tx.blockheight || 'Pending'}
+                      </a>
+                    </td>
+                    <td class="hide-mobile">${formatTime(tx.time || tx.blocktime)}</td>
+                    <td class="hide-tablet">${formatBytes(tx.size)}</td>
+                    <td>
+                      <div class="value-cell">${tx.totalOutput.toFixed(4)} S256</div>
+                    </td>
+                    <td class="hide-mobile">
+                      <span class="confirmations-cell">${tx.confirmations ? tx.confirmations.toLocaleString() : '0'}</span>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      function renderPagination(page) {
+        const container = document.getElementById('pagination-container');
+        container.innerHTML = `
+          <div class="pagination">
+            <button class="page-btn ${page <= 1 ? 'disabled' : ''}" onclick="loadTransactions(${page - 1})" ${page <= 1 ? 'disabled' : ''}>
+              ← Previous
+            </button>
+            <span class="page-info">Page ${page}</span>
+            <button class="page-btn" onclick="loadTransactions(${page + 1})">
+              Next →
+            </button>
+          </div>
+        `;
+      }
+
+      function truncateHash(hash) {
+        if (!hash) return 'N/A';
+        if (hash.length <= 20) return hash;
+        return `${hash.substring(0, 12)}...${hash.substring(hash.length - 8)}`;
+      }
+
+      function formatTime(timestamp) {
+        if (!timestamp || isNaN(timestamp)) return "Unknown";
+        const date = new Date(timestamp * 1000);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+      }
+
+      function formatBytes(bytes) {
+        if (!bytes) return '0 B';
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+      }
+
+      function showError(message) {
+        document.getElementById('transactions-content').innerHTML = `
+          <div class="error-message">
+            <strong>Error:</strong> ${message}
+          </div>
+        `;
+      }
+
+      // Search functionality
+      async function performSearch() {
+        const query = document.getElementById("header-search").value.trim();
+        if (!query) return;
+
+        // Check if query looks like an address and validate format
+        if (query.startsWith("s2") || query.startsWith("S")) {
+          if (!validateAddress(query)) {
+            alert("Invalid S256 address format. Valid formats: s2... (bech32) or S... (legacy)");
+            return;
+          }
+        }
+
+        try {
+          const response = await fetch(`${API_BASE}/api/search/${encodeURIComponent(query)}`);
+          const result = await response.json();
+
+          if (result.error) {
+            alert(result.error);
+            return;
+          }
+
+          // Redirect based on result type
+          if (result.type === "block") {
+            window.location.href = `/block/${result.data.hash}`;
+          } else if (result.type === "transaction") {
+            window.location.href = `/tx/${result.data.txid}`;
+          } else if (result.type === "address") {
+            window.location.href = `/?search=${result.data.address}`;
+          }
+        } catch (error) {
+          console.error("Search error:", error);
+          alert("Error performing search. Please try again.");
+        }
+      }
+
+      // Validate S256 address format
+      function validateAddress(address) {
+        const bech32Regex = /^s21[ac-hj-np-z02-9]{38,86}$/;
+        const legacyRegex = /^S[a-km-zA-HJ-NP-Z1-9]{25,34}$/;
+        return bech32Regex.test(address) || legacyRegex.test(address);
+      }
+
+      // Hamburger Menu Toggle
+      function toggleMobileMenu() {
+        const hamburger = document.getElementById("hamburger");
+        const navMenu = document.getElementById("nav-menu");
+        const navControls = document.getElementById("nav-controls");
+
+        hamburger.classList.toggle("active");
+        navMenu.classList.toggle("active");
+        navControls.classList.toggle("active");
+      }
+
+      // Matrix Terminal Easter Egg
+      let terminalContentLoaded = false;
+
+      async function openMatrixTerminal() {
+        const terminal = document.getElementById("matrix-terminal");
+        terminal.classList.add("active");
+
+        if (!terminalContentLoaded) {
+          await loadCoinSupply();
+          terminalContentLoaded = true;
+        }
+      }
+
+      function closeMatrixTerminal() {
+        const terminal = document.getElementById("matrix-terminal");
+        terminal.classList.remove("active");
+      }
+
+      async function loadCoinSupply() {
+        const content = document.getElementById("terminal-content");
+
+        try {
+          content.innerHTML = `
+            <div class="terminal-line">Initializing secure connection...</div>
+            <div class="terminal-line">Decrypting blockchain parameters...</div>
+            <div class="terminal-line">Accessing S256_SUPPLY.dat...</div>
+            <div class="terminal-line">Loading...</div>
+          `;
+
+          const response = await fetch('/COIN_SUPPLY.txt');
+          const text = await response.text();
+
+          setTimeout(() => {
+            displayTerminalContent(text);
+          }, 1000);
+
+        } catch (error) {
+          content.innerHTML = `
+            <div class="terminal-line">ERROR: Unable to access COIN_SUPPLY.txt</div>
+            <div class="terminal-line">Connection failed: ${error.message}</div>
+            <div class="terminal-line"><span class="terminal-cursor"></span></div>
+          `;
+        }
+      }
+
+      function displayTerminalContent(text) {
+        const content = document.getElementById("terminal-content");
+        const lines = text.split('\n');
+
+        content.innerHTML = `
+          <div class="terminal-line">Connection established...</div>
+          <div class="terminal-line">Decryption complete.</div>
+          <div class="terminal-line">Displaying: COIN_SUPPLY.txt</div>
+          <div class="terminal-line">═══════════════════════════════════════════════════════════════════</div>
+          <br>
+        `;
+
+        lines.forEach((line, index) => {
+          setTimeout(() => {
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'terminal-line';
+            lineDiv.textContent = line;
+            lineDiv.style.animationDelay = '0s';
+            content.appendChild(lineDiv);
+            content.scrollTop = content.scrollHeight;
+          }, index * 20);
+        });
+
+        setTimeout(() => {
+          const cursorDiv = document.createElement('div');
+          cursorDiv.className = 'terminal-line';
+          cursorDiv.innerHTML = '<br><span class="terminal-cursor"></span>';
+          content.appendChild(cursorDiv);
+          content.scrollTop = content.scrollHeight;
+        }, lines.length * 20 + 100);
+      }
+
+      // Initialize
+      document.addEventListener("DOMContentLoaded", () => {
+        initTheme();
+        loadTransactions(1);
+
+        // Hamburger menu
+        const hamburger = document.getElementById("hamburger");
+        if (hamburger) {
+          hamburger.addEventListener("click", toggleMobileMenu);
+        }
+
+        // Close mobile menu when clicking a link
+        const navLinks = document.querySelectorAll(".nav-link");
+        navLinks.forEach(link => {
+          link.addEventListener("click", () => {
+            const navMenu = document.getElementById("nav-menu");
+            const navControls = document.getElementById("nav-controls");
+            const hamburger = document.getElementById("hamburger");
+
+            if (navMenu && navMenu.classList.contains("active")) {
+              hamburger.classList.remove("active");
+              navMenu.classList.remove("active");
+              navControls.classList.remove("active");
+            }
+          });
+        });
+
+        // Matrix Terminal Easter Egg
+        const piSymbol = document.getElementById("pi-easter-egg");
+        const terminalClose = document.getElementById("terminal-close");
+        const matrixTerminal = document.getElementById("matrix-terminal");
+
+        if (piSymbol) {
+          piSymbol.addEventListener("click", openMatrixTerminal);
+        }
+
+        if (terminalClose) {
+          terminalClose.addEventListener("click", closeMatrixTerminal);
+        }
+
+        if (matrixTerminal) {
+          matrixTerminal.addEventListener("click", (e) => {
+            if (e.target === matrixTerminal) {
+              closeMatrixTerminal();
+            }
+          });
+        }
+
+        // Theme toggle
+        document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
+
+        // Search functionality
+        document.getElementById("header-search-btn").addEventListener("click", performSearch);
+        document.getElementById("header-search").addEventListener("keypress", (e) => {
+          if (e.key === "Enter") {
+            performSearch();
+          }
+        });
+
+        // Auto-refresh every 30 seconds
+        setInterval(() => loadTransactions(currentPage), 30000);
+      });
+    </script>
+  </body>
+</html>

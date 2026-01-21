@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Charts & Statistics - S256 Block Explorer</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
+    <link rel="stylesheet" href="/styles.css?v=16" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+      .charts-container {
+        max-width: 1400px;
+        margin: 100px auto 2rem;
+        padding: 0 1rem;
+      }
+
+      .charts-header {
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .charts-header h1 {
+        color: var(--text);
+        margin: 0;
+      }
+
+      .time-period-selector {
+        display: flex;
+        gap: 0.5rem;
+        background: var(--bg-card);
+        padding: 0.5rem;
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow);
+      }
+
+      .period-btn {
+        padding: 0.5rem 1rem;
+        border: 2px solid transparent;
+        background: transparent;
+        color: var(--text);
+        border-radius: var(--radius-sm);
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .period-btn:hover {
+        background: rgba(163, 0, 255, 0.1);
+        border-color: var(--primary);
+      }
+
+      .period-btn.active {
+        background: var(--gradient);
+        color: white;
+        border-color: var(--primary);
+      }
+
+      .charts-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+      }
+
+      .chart-card {
+        background: var(--bg-card);
+        padding: 2rem;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+      }
+
+      .chart-card:hover {
+        border-color: var(--primary);
+        box-shadow: var(--shadow-lg);
+      }
+
+      .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+      }
+
+      .chart-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        background: var(--gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .chart-icon {
+        font-size: 2rem;
+      }
+
+      .chart-canvas-container {
+        position: relative;
+        height: 300px;
+      }
+
+      .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: var(--radius-sm);
+        z-index: 10;
+      }
+
+      [data-theme="dark"] .loading-overlay {
+        background: rgba(0, 0, 0, 0.8);
+      }
+
+      .spinner {
+        border: 3px solid rgba(163, 0, 255, 0.2);
+        border-top: 3px solid var(--primary);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .error-message {
+        background: rgba(255, 0, 0, 0.1);
+        border: 1px solid rgba(255, 0, 0, 0.3);
+        border-radius: var(--radius-sm);
+        padding: 1rem;
+        color: #ff4444;
+        margin: 1rem 0;
+      }
+
+      @media (max-width: 768px) {
+        .charts-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .time-period-selector {
+          flex-wrap: wrap;
+          width: 100%;
+        }
+
+        .period-btn {
+          flex: 1;
+          min-width: 60px;
+        }
+
+        .chart-card {
+          padding: 1rem;
+        }
+
+        .chart-canvas-container {
+          height: 250px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="container">
+        <div class="nav-brand">
+          <span class="logo">S256</span>
+          <span class="tagline">Block Explorer</span>
+        </div>
+        <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div class="nav-menu" id="nav-menu">
+          <a href="/" class="nav-link">Blocks</a>
+          <a href="/transactions.html" class="nav-link">Transactions</a>
+          <a href="/peers.html" class="nav-link">Network</a>
+          <a href="/nodemap.html" class="nav-link">Node Map</a>
+          <a href="/holders.html" class="nav-link">Holders</a>
+          <a href="/api.html" class="nav-link">API</a>
+          <div class="nav-dropdown">
+            <a href="#" class="nav-link dropdown-toggle">Tools ▼</a>
+            <div class="dropdown-menu">
+              <a href="/mempool.html" class="dropdown-item">Mempool</a>
+              <a href="/charts.html" class="dropdown-item active">Charts</a>
+            </div>
+          </div>
+        </div>
+        <div class="nav-controls" id="nav-controls">
+          <span class="pi-symbol" id="pi-easter-egg" title="π">π</span>
+          <a href="https://sha256coin.eu/" class="btn-back">Back to Main Site</a>
+          <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+            <span class="theme-icon">🌙</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="charts-container">
+      <div class="charts-header">
+        <div>
+          <h1>📊 Charts & Statistics</h1>
+          <p style="color: var(--text-light); margin: 0.5rem 0 0 0;">
+            Historical network data and trends
+          </p>
+        </div>
+        <div class="time-period-selector">
+          <button class="period-btn active" onclick="changePeriod(7)" data-period="7">7 Days</button>
+          <button class="period-btn" onclick="changePeriod(30)" data-period="30">30 Days</button>
+          <button class="period-btn" onclick="changePeriod(90)" data-period="90">90 Days</button>
+          <button class="period-btn" onclick="changePeriod(365)" data-period="365">1 Year</button>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <!-- Hashrate Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <h2 class="chart-title">Network Hashrate</h2>
+            <span class="chart-icon">⛏️</span>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas id="hashrate-chart"></canvas>
+            <div class="loading-overlay" id="hashrate-loading" style="display: none;">
+              <div class="spinner"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Difficulty Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <h2 class="chart-title">Network Difficulty</h2>
+            <span class="chart-icon">🎯</span>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas id="difficulty-chart"></canvas>
+            <div class="loading-overlay" id="difficulty-loading" style="display: none;">
+              <div class="spinner"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transaction Volume Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <h2 class="chart-title">Daily Transactions</h2>
+            <span class="chart-icon">💸</span>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas id="transactions-chart"></canvas>
+            <div class="loading-overlay" id="transactions-loading" style="display: none;">
+              <div class="spinner"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Block Size Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <h2 class="chart-title">Average Block Size</h2>
+            <span class="chart-icon">📦</span>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas id="blocksize-chart"></canvas>
+            <div class="loading-overlay" id="blocksize-loading" style="display: none;">
+              <div class="spinner"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Blocks Mined Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <h2 class="chart-title">Daily Blocks Mined</h2>
+            <span class="chart-icon">🔗</span>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas id="blocks-chart"></canvas>
+            <div class="loading-overlay" id="blocks-loading" style="display: none;">
+              <div class="spinner"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="container">
+        <p>&copy; <script>document.write(new Date().getFullYear())</script> S256 Block Explorer. Historical blockchain analytics.</p>
+      </div>
+    </footer>
+
+    <!-- Matrix Terminal Easter Egg -->
+    <div class="matrix-terminal" id="matrix-terminal">
+      <div class="terminal-container">
+        <div class="terminal-header">
+          <div class="terminal-title">S256_SECURE_TERMINAL v1.337 [ENCRYPTED]</div>
+          <button class="terminal-close" id="terminal-close">[X] CLOSE</button>
+        </div>
+        <div class="terminal-content" id="terminal-content">
+          <div class="terminal-line">Initializing secure connection...</div>
+          <div class="terminal-line">Decrypting blockchain parameters...</div>
+          <div class="terminal-line">Access granted.<span class="terminal-cursor"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = window.location.origin;
+      let currentPeriod = 7;
+      let charts = {};
+
+      // Theme Management
+      function initTheme() {
+        const savedTheme = localStorage.getItem("theme") || "dark";
+        document.documentElement.setAttribute("data-theme", savedTheme);
+        updateThemeIcon(savedTheme);
+        return savedTheme;
+      }
+
+      function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute("data-theme");
+        const newTheme = currentTheme === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", newTheme);
+        localStorage.setItem("theme", newTheme);
+        updateThemeIcon(newTheme);
+
+        // Update all charts with new theme colors
+        Object.keys(charts).forEach(key => {
+          if (charts[key]) {
+            updateChartTheme(charts[key]);
+          }
+        });
+      }
+
+      function updateThemeIcon(theme) {
+        const icon = document.querySelector(".theme-icon");
+        icon.textContent = theme === "dark" ? "☀️" : "🌙";
+      }
+
+      function getChartColors() {
+        const theme = document.documentElement.getAttribute("data-theme");
+        return {
+          primary: theme === "dark" ? "#ff6f00" : "#e65100",
+          secondary: theme === "dark" ? "#00d4ff" : "#0099cc",
+          grid: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)",
+          text: theme === "dark" ? "#e9eef9" : "#1f2430"
+        };
+      }
+
+      function updateChartTheme(chart) {
+        const colors = getChartColors();
+        chart.options.scales.x.ticks.color = colors.text;
+        chart.options.scales.x.grid.color = colors.grid;
+        chart.options.scales.y.ticks.color = colors.text;
+        chart.options.scales.y.grid.color = colors.grid;
+        chart.update();
+      }
+
+      // Change time period
+      function changePeriod(days) {
+        currentPeriod = days;
+
+        // Update button states
+        document.querySelectorAll('.period-btn').forEach(btn => {
+          btn.classList.remove('active');
+          if (parseInt(btn.dataset.period) === days) {
+            btn.classList.add('active');
+          }
+        });
+
+        // Reload all charts
+        loadAllCharts();
+      }
+
+      // Load chart data
+      async function loadChartData(metric) {
+        const loadingEl = document.getElementById(`${metric}-loading`);
+        if (loadingEl) loadingEl.style.display = 'flex';
+
+        try {
+          const response = await fetch(`${API_BASE}/api/charts/${metric}?days=${currentPeriod}`);
+          const result = await response.json();
+
+          if (result.error) {
+            throw new Error(result.error);
+          }
+
+          return result.data;
+        } catch (error) {
+          console.error(`Error loading ${metric} chart:`, error);
+          return [];
+        } finally {
+          if (loadingEl) loadingEl.style.display = 'none';
+        }
+      }
+
+      // Create or update chart
+      function createOrUpdateChart(canvasId, metric, label, data, yAxisCallback) {
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) return;
+
+        const colors = getChartColors();
+        const labels = data.map(d => new Date(d.timestamp).toLocaleDateString());
+        const values = data.map(d => d.value);
+
+        const chartConfig = {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: label,
+              data: values,
+              borderColor: colors.primary,
+              backgroundColor: `${colors.primary}20`,
+              borderWidth: 2,
+              fill: true,
+              tension: 0.4,
+              pointRadius: 0,
+              pointHoverRadius: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false
+              },
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleColor: '#fff',
+                bodyColor: '#fff',
+                borderColor: colors.primary,
+                borderWidth: 1,
+                padding: 12,
+                displayColors: false,
+                callbacks: {
+                  label: function(context) {
+                    return yAxisCallback ? yAxisCallback(context.parsed.y) : context.parsed.y.toLocaleString();
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: {
+                  color: colors.grid,
+                  drawBorder: false
+                },
+                ticks: {
+                  color: colors.text,
+                  maxTicksLimit: 8,
+                  autoSkip: true,
+                  maxRotation: 0,
+                  minRotation: 0
+                }
+              },
+              y: {
+                beginAtZero: true,
+                grid: {
+                  color: colors.grid,
+                  drawBorder: false
+                },
+                ticks: {
+                  color: colors.text,
+                  callback: yAxisCallback || function(value) {
+                    return value.toLocaleString();
+                  }
+                }
+              }
+            },
+            interaction: {
+              mode: 'nearest',
+              axis: 'x',
+              intersect: false
+            }
+          }
+        };
+
+        if (charts[metric]) {
+          charts[metric].data.labels = labels;
+          charts[metric].data.datasets[0].data = values;
+          charts[metric].data.datasets[0].borderColor = colors.primary;
+          charts[metric].data.datasets[0].backgroundColor = `${colors.primary}20`;
+          updateChartTheme(charts[metric]);
+        } else {
+          charts[metric] = new Chart(ctx, chartConfig);
+        }
+      }
+
+      // Format hashrate
+      function formatHashrate(hps) {
+        if (hps >= 1e12) return (hps / 1e12).toFixed(2) + ' TH/s';
+        if (hps >= 1e9) return (hps / 1e9).toFixed(2) + ' GH/s';
+        if (hps >= 1e6) return (hps / 1e6).toFixed(2) + ' MH/s';
+        if (hps >= 1e3) return (hps / 1e3).toFixed(2) + ' KH/s';
+        return hps.toFixed(2) + ' H/s';
+      }
+
+      // Format bytes
+      function formatBytes(bytes) {
+        if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
+        return bytes.toFixed(0) + ' B';
+      }
+
+      // Load all charts
+      async function loadAllCharts() {
+        // Hashrate
+        const hashrateData = await loadChartData('hashrate');
+        createOrUpdateChart('hashrate-chart', 'hashrate', 'Network Hashrate', hashrateData, formatHashrate);
+
+        // Difficulty
+        const difficultyData = await loadChartData('difficulty');
+        createOrUpdateChart('difficulty-chart', 'difficulty', 'Difficulty', difficultyData);
+
+        // Transactions
+        const transactionsData = await loadChartData('transactions');
+        createOrUpdateChart('transactions-chart', 'transactions', 'Daily Transactions', transactionsData);
+
+        // Block Size
+        const blocksizeData = await loadChartData('blocksize');
+        createOrUpdateChart('blocksize-chart', 'blocksize', 'Avg Block Size', blocksizeData, formatBytes);
+
+        // Blocks Mined
+        const blocksData = await loadChartData('blocks');
+        createOrUpdateChart('blocks-chart', 'blocks', 'Blocks Mined', blocksData);
+      }
+
+      // Hamburger Menu Toggle
+      function toggleMobileMenu() {
+        const hamburger = document.getElementById("hamburger");
+        const navMenu = document.getElementById("nav-menu");
+        const navControls = document.getElementById("nav-controls");
+
+        hamburger.classList.toggle("active");
+        navMenu.classList.toggle("active");
+        navControls.classList.toggle("active");
+      }
+
+      // Matrix Terminal Easter Egg
+      let terminalContentLoaded = false;
+
+      async function openMatrixTerminal() {
+        const terminal = document.getElementById("matrix-terminal");
+        terminal.classList.add("active");
+
+        if (!terminalContentLoaded) {
+          await loadCoinSupply();
+          terminalContentLoaded = true;
+        }
+      }
+
+      function closeMatrixTerminal() {
+        const terminal = document.getElementById("matrix-terminal");
+        terminal.classList.remove("active");
+      }
+
+      async function loadCoinSupply() {
+        const content = document.getElementById("terminal-content");
+
+        try {
+          content.innerHTML = `
+            <div class="terminal-line">Initializing secure connection...</div>
+            <div class="terminal-line">Decrypting blockchain parameters...</div>
+            <div class="terminal-line">Accessing S256_SUPPLY.dat...</div>
+            <div class="terminal-line">Loading...</div>
+          `;
+
+          const response = await fetch('/COIN_SUPPLY.txt');
+          const text = await response.text();
+
+          setTimeout(() => {
+            displayTerminalContent(text);
+          }, 1000);
+
+        } catch (error) {
+          content.innerHTML = `
+            <div class="terminal-line">ERROR: Unable to access COIN_SUPPLY.txt</div>
+            <div class="terminal-line">Connection failed: ${error.message}</div>
+            <div class="terminal-line"><span class="terminal-cursor"></span></div>
+          `;
+        }
+      }
+
+      function displayTerminalContent(text) {
+        const content = document.getElementById("terminal-content");
+        const lines = text.split('\n');
+
+        content.innerHTML = `
+          <div class="terminal-line">Connection established...</div>
+          <div class="terminal-line">Decryption complete.</div>
+          <div class="terminal-line">Displaying: COIN_SUPPLY.txt</div>
+          <div class="terminal-line">═══════════════════════════════════════════════════════════════════</div>
+          <br>
+        `;
+
+        lines.forEach((line, index) => {
+          setTimeout(() => {
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'terminal-line';
+            lineDiv.textContent = line;
+            lineDiv.style.animationDelay = '0s';
+            content.appendChild(lineDiv);
+            content.scrollTop = content.scrollHeight;
+          }, index * 20);
+        });
+
+        setTimeout(() => {
+          const cursorDiv = document.createElement('div');
+          cursorDiv.className = 'terminal-line';
+          cursorDiv.innerHTML = '<br><span class="terminal-cursor"></span>';
+          content.appendChild(cursorDiv);
+          content.scrollTop = content.scrollHeight;
+        }, lines.length * 20 + 100);
+      }
+
+      // Initialize
+      document.addEventListener("DOMContentLoaded", () => {
+        initTheme();
+        loadAllCharts();
+
+        // Hamburger menu
+        const hamburger = document.getElementById("hamburger");
+        if (hamburger) {
+          hamburger.addEventListener("click", toggleMobileMenu);
+        }
+
+        // Close mobile menu when clicking a link
+        const navLinks = document.querySelectorAll(".nav-link");
+        navLinks.forEach(link => {
+          link.addEventListener("click", () => {
+            const navMenu = document.getElementById("nav-menu");
+            const navControls = document.getElementById("nav-controls");
+            const hamburger = document.getElementById("hamburger");
+
+            if (navMenu && navMenu.classList.contains("active")) {
+              hamburger.classList.remove("active");
+              navMenu.classList.remove("active");
+              navControls.classList.remove("active");
+            }
+          });
+        });
+
+        // Matrix Terminal Easter Egg
+        const piSymbol = document.getElementById("pi-easter-egg");
+        const terminalClose = document.getElementById("terminal-close");
+        const matrixTerminal = document.getElementById("matrix-terminal");
+
+        if (piSymbol) {
+          piSymbol.addEventListener("click", openMatrixTerminal);
+        }
+
+        if (terminalClose) {
+          terminalClose.addEventListener("click", closeMatrixTerminal);
+        }
+
+        if (matrixTerminal) {
+          matrixTerminal.addEventListener("click", (e) => {
+            if (e.target === matrixTerminal) {
+              closeMatrixTerminal();
+            }
+          });
+        }
+
+        // Theme toggle
+        document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
+      });
+    </script>
+  </body>
+</html>
