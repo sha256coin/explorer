@@ -4,21 +4,16 @@ const blockSchema = new mongoose.Schema({
   hash: {
     type: String,
     required: true,
-    unique: true,
-    index: true
+    unique: true
   },
   height: {
     type: Number,
     required: true,
-    unique: true,
-    index: true
+    unique: true
   },
   version: Number,
   merkleroot: String,
-  time: {
-    type: Number,
-    index: true
-  },
+  time: Number,
   mediantime: Number,
   nonce: Number,
   bits: String,
@@ -49,9 +44,7 @@ const blockSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for efficient queries
-blockSchema.index({ height: -1 });
+// Index for efficient queries (hash and height already indexed via unique: true)
 blockSchema.index({ time: -1 });
-blockSchema.index({ hash: 1 });
 
 module.exports = mongoose.model('Block', blockSchema);

@@ -4,8 +4,7 @@ const transactionSchema = new mongoose.Schema({
   txid: {
     type: String,
     required: true,
-    unique: true,
-    index: true
+    unique: true
   },
   hash: String,
   version: Number,
@@ -13,10 +12,7 @@ const transactionSchema = new mongoose.Schema({
   vsize: Number,
   weight: Number,
   locktime: Number,
-  blockhash: {
-    type: String,
-    index: true
-  },
+  blockhash: String,
   blockheight: {
     type: Number,
     index: true
@@ -50,8 +46,7 @@ const transactionSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes for efficient queries
-transactionSchema.index({ txid: 1 });
+// Indexes for efficient queries (txid already indexed via unique: true)
 transactionSchema.index({ blockhash: 1 });
 transactionSchema.index({ blockheight: -1 });
 transactionSchema.index({ time: -1 });

@@ -9,8 +9,7 @@ const statsSchema = new mongoose.Schema({
   mempoolsize: Number,
   timestamp: {
     type: Date,
-    default: Date.now,
-    index: true
+    default: Date.now
   }
 }, {
   timestamps: true
