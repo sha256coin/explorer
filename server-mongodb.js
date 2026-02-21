@@ -365,37 +365,115 @@ app.get('/api/tx/:txid', async (req, res) => {
 // Get mempool (unconfirmed transactions)
 app.get('/api/mempool', async (req, res) => {
   try {
-    // Get raw mempool with verbose details
-    const mempoolRaw = await rpcCall('getrawmempool', [true]);
+    // Get raw mempool with verbose details to get fee info
+    const mempoolVerbose = await rpcCall('getrawmempool', [true]);
 
-    if (!mempoolRaw || typeof mempoolRaw !== 'object') {
-      return res.json({ transactions: [], count: 0, totalSize: 0, totalFees: 0 });
+    if (!mempoolVerbose || typeof mempoolVerbose !== 'object') {
+      return res.json({
+        transactions: [],
+        stats: { count: 0, totalSize: 0, totalFees: 0, totalVSize: 0 }
+      });
     }
 
-    // Convert object to array with txid
-    const mempoolArray = Object.entries(mempoolRaw).map(([txid, data]) => ({
-      txid,
-      ...data
-    }));
+    const mempoolTxIds = Object.keys(mempoolVerbose);
 
-    // Sort by fee rate (highest first)
-    mempoolArray.sort((a, b) => (b.fees?.base || 0) - (a.fees?.base || 0));
+    if (mempoolTxIds.length === 0) {
+      return res.json({
+        transactions: [],
+        stats: { count: 0, totalSize: 0, totalFees: 0, totalVSize: 0 }
+      });
+    }
+
+    // Fetch the full transaction details for each txid in the mempool
+    const txPromises = mempoolTxIds.map(txid => rpcCall('getrawtransaction', [txid, true]));
+    let fullTransactions = await Promise.all(txPromises);
+
+    // Create a map of full transaction details by txid for easy lookup
+    const txDetailsMap = new Map(fullTransactions.map(tx => [tx.txid, tx]));
+
+    // Combine the mempool-specific data (like fees) with the full transaction data
+    let combinedTransactions = mempoolTxIds.map(txid => {
+      const mempoolEntry = mempoolVerbose[txid];
+      const fullTx = txDetailsMap.get(txid);
+      return {
+        ...fullTx,       // Full details like vin, vout
+        ...mempoolEntry, // Mempool specific info like fees, time
+        txid: txid       // Ensure txid is at the top level
+      };
+    });
+
+    // --- Populate prevout data for inputs of mempool transactions ---
+    // Collect all unique input txids that need prevout lookup
+    const inputTxidsToFetch = new Set();
+    combinedTransactions.forEach(tx => {
+      if (tx.vin) {
+        tx.vin.forEach(input => {
+          // Only fetch if it's not a coinbase and prevout is missing
+          if (!input.coinbase && input.txid && input.vout !== undefined && !input.prevout) {
+            inputTxidsToFetch.add(input.txid);
+          }
+        });
+      }
+    });
+
+    const prevTxMap = new Map();
+    if (inputTxidsToFetch.size > 0) {
+      // Fetch previous transactions from the MongoDB, not RPC, for efficiency
+      const prevTxs = await Transaction.find({
+        txid: { $in: Array.from(inputTxidsToFetch) }
+      }).select('txid vout').lean();
+
+      prevTxs.forEach(tx => {
+        prevTxMap.set(tx.txid, tx);
+      });
+    }
+
+    // Now, enrich the combinedTransactions with prevout data
+    combinedTransactions = combinedTransactions.map(tx => {
+      if (tx.vin) {
+        tx.vin = tx.vin.map(input => {
+          if (!input.coinbase && input.txid && input.vout !== undefined && !input.prevout) {
+            const prevTx = prevTxMap.get(input.txid);
+            if (prevTx && prevTx.vout && prevTx.vout[input.vout]) {
+              return {
+                ...input,
+                prevout: {
+                  value: prevTx.vout[input.vout].value,
+                  scriptPubKey: prevTx.vout[input.vout].scriptPubKey
+                }
+              };
+            }
+          }
+          return input; // Return original input if no prevout to add or already exists
+        });
+      }
+      return tx;
+    });
+    // --- End populate prevout data ---
+
+
+    // Sort by time (most recent first) as a default sorting
+    combinedTransactions.sort((a, b) => (b.time || 0) - (a.time || 0));
 
     // Calculate statistics
     const stats = {
-      count: mempoolArray.length,
-      totalSize: mempoolArray.reduce((sum, tx) => sum + (tx.size || 0), 0),
-      totalFees: mempoolArray.reduce((sum, tx) => sum + (tx.fees?.base || 0), 0),
-      totalVSize: mempoolArray.reduce((sum, tx) => sum + (tx.vsize || 0), 0)
+      count: combinedTransactions.length,
+      totalSize: combinedTransactions.reduce((sum, tx) => sum + (tx.size || 0), 0),
+      totalFees: combinedTransactions.reduce((sum, tx) => sum + (tx.fees?.base || 0), 0),
+      totalVSize: combinedTransactions.reduce((sum, tx) => sum + (tx.vsize || 0), 0)
     };
 
     res.json({
-      transactions: mempoolArray,
+      transactions: combinedTransactions,
       stats
     });
   } catch (error) {
     console.error('Error getting mempool:', error);
-    res.status(500).json({ error: error.message, transactions: [], stats: { count: 0, totalSize: 0, totalFees: 0 } });
+    res.status(500).json({
+      error: error.message,
+      transactions: [],
+      stats: { count: 0, totalSize: 0, totalFees: 0, totalVSize: 0 }
+    });
   }
 });
 

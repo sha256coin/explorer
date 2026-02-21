@@ -335,6 +335,7 @@
     <script>
       const API_BASE = window.location.origin;
       let autoRefreshInterval = null;
+      let mempoolTransactions = new Map();
 
       // Theme Management
       function initTheme() {
@@ -397,6 +398,13 @@
           }
 
           document.getElementById('mempool-stats-section').style.display = 'block';
+
+          // Populate the mempoolTransactions map
+          mempoolTransactions.clear();
+          transactions.forEach(tx => {
+            mempoolTransactions.set(tx.txid, tx);
+          });
+
           renderMempoolTable(transactions);
         } catch (error) {
           console.error('Error loading mempool:', error);
@@ -427,7 +435,7 @@
                   const timeInMempool = Date.now() / 1000 - (tx.time || 0);
 
                   return `
-                    <tr onclick="window.location.href='/tx/${tx.txid}'">
+                    <tr onclick="showTransactionModal('${tx.txid}')">
                       <td>
                         <span class="tx-hash">${truncateHash(tx.txid)}</span>
                       </td>
@@ -629,6 +637,135 @@
         // Auto-refresh every 10 seconds
         autoRefreshInterval = setInterval(loadMempool, 10000);
       });
+    </script>
+
+    <!-- Transaction Details Modal -->
+    <div class="tx-modal" id="tx-modal">
+      <div class="tx-modal-overlay" onclick="closeTxModal()"></div>
+      <div class="tx-modal-content">
+        <div class="tx-modal-header">
+          <h3>Transaction Details</h3>
+          <button class="tx-modal-close" onclick="closeTxModal()">&times;</button>
+        </div>
+        <div class="tx-modal-body" id="tx-modal-body">
+          <!-- Transaction details will be populated here -->
+        </div>
+      </div>
+    </div>
+
+    <script>
+      async function showTransactionModal(txid) {
+        let tx;
+        let isMempool = false;
+
+        // Check if the transaction is in our mempool map
+        if (mempoolTransactions.has(txid)) {
+            tx = mempoolTransactions.get(txid);
+            isMempool = true;
+        } else {
+            // If not, fetch it from the general-purpose API
+            try {
+                const response = await fetch(`${API_BASE}/api/tx/${txid}`);
+                tx = await response.json();
+                if (tx.error) {
+                    showError(tx.error);
+                    return;
+                }
+            } catch (error) {
+                showError("Failed to fetch transaction details.");
+                return;
+            }
+        }
+
+        const content = document.getElementById("tx-modal-body");
+
+        content.innerHTML = `
+            <div class="detail-row">
+                <div class="detail-label">Transaction ID:</div>
+                <div class="detail-value">${tx.txid}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Status:</div>
+                <div class="detail-value">${isMempool ? 'Unconfirmed (in Mempool)' : (tx.confirmations ? `${tx.confirmations.toLocaleString()} Confirmations` : 'Confirmed')}</div>
+            </div>
+            ${!isMempool && tx.blockhash ? `
+            <div class="detail-row">
+                <div class="detail-label">Block Hash:</div>
+                <div class="detail-value clickable" onclick="window.location.href='/block/${tx.blockhash}'">${truncateHash(tx.blockhash)}</div>
+            </div>` : ''}
+            <div class="detail-row">
+                <div class="detail-label">Time:</div>
+                <div class="detail-value">${new Date((tx.time || tx.blocktime) * 1000).toLocaleString()}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Size:</div>
+                <div class="detail-value">${formatBytes(tx.size)}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Virtual Size:</div>
+                <div class="detail-value">${formatBytes(tx.vsize)}</div>
+            </div>
+             ${isMempool ? `
+            <div class="detail-row">
+                <div class="detail-label">Fee:</div>
+                <div class="detail-value">${(tx.fees?.base || 0).toFixed(8)} S256</div>
+            </div>` : ''}
+            <div class="detail-row">
+                <div class="detail-label">Inputs (${tx.vin.length}):</div>
+                <div class="detail-value">
+                    ${tx.vin.map((input, index) => {
+                        if (input.coinbase) {
+                            return `<div class="tx-io-box tx-input-box">
+                                <div class="tx-io-header">💰 <strong>Input ${index}: Coinbase</strong></div>
+                            </div>`;
+                        }
+                        // For confirmed transactions, we need prevout data which might not be present on the mempool tx object
+                        const hasValue = input.prevout && input.prevout.value !== undefined;
+                        const hasAddress = input.prevout && input.prevout.scriptPubKey && input.prevout.scriptPubKey.address;
+
+                        return `<div class="tx-io-box tx-input-box">
+                            <div class="tx-io-header">📥 <strong>Input ${index}</strong></div>
+                             ${hasAddress ? `<div class="tx-io-address"><strong>From Address:</strong> ${input.prevout.scriptPubKey.address}</div>` : ''}
+                             ${hasValue ? `<div class="tx-io-amount"><strong>Amount:</strong> <span class="amount-highlight">${input.prevout.value.toFixed(8)} S256</span></div>` : ''}
+                            <div class="tx-io-reference">
+                                <strong>Source:</strong> <span class="detail-value clickable" onclick="showTransactionModal('${input.txid}')">${truncateHash(input.txid)}</span> [Output #${input.vout !== undefined ? input.vout : 'N/A'}]
+                            </div>
+                        </div>`;
+                    }).join("")}
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Outputs (${tx.vout.length}):</div>
+                <div class="detail-value">
+                    ${tx.vout.map((output, index) => `
+                        <div class="tx-io-box tx-output-box">
+                            <div class="tx-io-header">📤 <strong>Output ${index}</strong></div>
+                            <div class="tx-io-amount"><strong>Amount:</strong> <span class="amount-highlight">${output.value.toFixed(8)} S256</span></div>
+                            ${output.scriptPubKey.address
+                                ? `<div class="tx-io-address"><strong>To Address:</strong> ${output.scriptPubKey.address}</div>`
+                                : `<div class="tx-io-detail"><strong>Type:</strong> ${output.scriptPubKey.type}</div>`
+                            }
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+        `;
+
+        // Show modal
+        const modal = document.getElementById('tx-modal');
+        modal.style.display = 'flex';
+        setTimeout(() => {
+            modal.classList.add('show');
+        }, 10);
+      }
+
+      function closeTxModal() {
+        const modal = document.getElementById('tx-modal');
+        modal.classList.remove('show');
+        setTimeout(() => {
+            modal.style.display = 'none';
+        }, 300);
+      }
     </script>
   </body>
 </html>
