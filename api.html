@@ -142,6 +142,16 @@
         color: var(--primary);
       }
 
+      .code-link {
+        color: var(--primary);
+        text-decoration: underline;
+        font-weight: 600;
+      }
+
+      .code-link:hover {
+        color: #00d4ff;
+      }
+
       .intro-section {
         background: linear-gradient(135deg, var(--primary) 0%, #00d4ff 100%);
         color: white;
@@ -218,6 +228,7 @@
       </div>
 
       <div class="api-nav">
+        <a href="#price">Price Info</a>
         <a href="#blockchain-info">Blockchain Info</a>
         <a href="#blocks">Blocks</a>
         <a href="#transactions">Transactions</a>
@@ -241,7 +252,7 @@
           </div>
           <div class="code-header">Example Request:</div>
           <div class="code-block">
-            <pre>curl https://explorer.sha256coin.eu/api/blockchain-info</pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/blockchain-info" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/blockchain-info</a></pre>
           </div>
           <div class="code-header">Example Response:</div>
           <div class="code-block">
@@ -264,12 +275,15 @@
           </div>
           <div class="code-header">Example Request:</div>
           <div class="code-block">
-            <pre>curl https://explorer.sha256coin.eu/api/supply</pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/supply" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/supply</a></pre>
           </div>
           <div class="code-header">Example Response:</div>
           <div class="code-block">
             <pre>{
-  "supply": 1250000.00000000
+  "circulatingSupply": 1631600,
+  "totalSupply": 84000000,
+  "maxSupply": 84000000,
+  "blocks": 16316
 }</pre>
           </div>
         </div>
@@ -310,7 +324,7 @@
           </table>
           <div class="code-header">Example Request:</div>
           <div class="code-block">
-            <pre>curl https://explorer.sha256coin.eu/api/blocks/recent/10?page=1</pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/blocks/recent/10?page=1" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/blocks/recent/10?page=1</a></pre>
           </div>
         </div>
 
@@ -340,11 +354,11 @@
           </table>
           <div class="code-header">Example Request (by height):</div>
           <div class="code-block">
-            <pre>curl https://explorer.sha256coin.eu/api/block/1000</pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/block/1000" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/block/1000</a></pre>
           </div>
           <div class="code-header">Example Request (by hash):</div>
           <div class="code-block">
-            <pre>curl https://explorer.sha256coin.eu/api/block/00000000abe2a78ceb00eca81258804d59fe4ad45345e1750e705139e6da7297</pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/block/00000000abe2a78ceb00eca81258804d59fe4ad45345e1750e705139e6da7297" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/block/00000000abe2a78ceb00eca81258804d59fe4ad45345e1750e705139e6da7297</a></pre>
           </div>
         </div>
       </div>
@@ -379,7 +393,7 @@
           </table>
           <div class="code-header">Example Request:</div>
           <div class="code-block">
-            <pre>curl https://explorer.sha256coin.eu/api/tx/328fbe73f2b764658b57a0ac538d67e59b5c6bcde2c266a71bbb842f5430d595</pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/tx/1689495c585afbe317e833587ddf17597e0cf86b0a752762bbe0341b514f7c42" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/tx/1689495c585afbe317e833587ddf17597e0cf86b0a752762bbe0341b514f7c42</a></pre>
           </div>
         </div>
 
@@ -393,7 +407,7 @@
           </div>
           <div class="code-header">Example Request:</div>
           <div class="code-block">
-            <pre>curl https://explorer.sha256coin.eu/api/mempool</pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/mempool" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/mempool</a></pre>
           </div>
         </div>
       </div>
@@ -428,18 +442,50 @@
           </table>
           <div class="code-header">Example Request:</div>
           <div class="code-block">
-            <pre>curl https://explorer.sha256coin.eu/api/address/S1A2B3C4D5E6F7G8H9</pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/address/Sfu8VLiVd77sKuShL7aXU65egZr8MLCNrh" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/address/Sfu8VLiVd77sKuShL7aXU65egZr8MLCNrh</a></pre>
           </div>
           <div class="code-header">Example Response:</div>
           <div class="code-block">
             <pre>{
-  "address": "S1A2B3C4D5E6F7G8H9",
+  "address": "Sfu8VLiVd77sKuShL7aXU65egZr8MLCNrh",
   "balance": 100.50000000,
   "received": 250.00000000,
   "sent": 149.50000000,
   "txCount": 15,
   "transactions": [...]
 }</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Price Information -->
+      <div class="api-section" id="price">
+        <h2>💰 Price Information</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/price</span>
+          </div>
+          <div class="endpoint-description">
+            Returns current S256 price data, volume, and market cap from Live Coin Watch. Data is cached for 5 minutes.
+          </div>
+          <div class="code-header">Example Request:</div>
+          <div class="code-block">
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/price" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/price</a></pre>
+          </div>
+          <div class="code-header">Example Response:</div>
+          <div class="code-block">
+            <pre>{
+  "name": "SHA256COIN",
+  "price": 0.00123456,
+  "volume": 5432.10,
+  "cap": 123456.78,
+  "liquidity": 987.65
+}</pre>
+          </div>
+          <div class="endpoint-info" style="margin-top: 1rem; font-size: 0.9rem; color: #888;">
+            <p><strong>Source:</strong> <a href="https://www.livecoinwatch.com/price/SHA256COIN-S256" target="_blank" style="color: #00d4ff;">Live Coin Watch</a></p>
           </div>
         </div>
       </div>
@@ -474,7 +520,7 @@
           </table>
           <div class="code-header">Example Request:</div>
           <div class="code-block">
-            <pre>curl https://explorer.sha256coin.eu/api/search/1000</pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/search/1000" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/search/1000</a></pre>
           </div>
           <div class="code-header">Example Response:</div>
           <div class="code-block">
@@ -500,7 +546,7 @@
           </div>
           <div class="code-header">Example Request:</div>
           <div class="code-block">
-            <pre>curl https://explorer.sha256coin.eu/api/getblockcount</pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/getblockcount" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/getblockcount</a></pre>
           </div>
           <div class="code-header">Example Response:</div>
           <div class="code-block">
@@ -520,7 +566,7 @@
           </div>
           <div class="code-header">Example Request:</div>
           <div class="code-block">
-            <pre>curl https://explorer.sha256coin.eu/api/getdifficulty</pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/getdifficulty" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/getdifficulty</a></pre>
           </div>
           <div class="code-header">Example Response:</div>
           <div class="code-block">
@@ -540,7 +586,7 @@
           </div>
           <div class="code-header">Example Request:</div>
           <div class="code-block">
-            <pre>curl https://explorer.sha256coin.eu/api/getnetworkhashps</pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/getnetworkhashps" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/getnetworkhashps</a></pre>
           </div>
           <div class="code-header">Example Response:</div>
           <div class="code-block">
@@ -560,7 +606,7 @@
           </div>
           <div class="code-header">Example Request:</div>
           <div class="code-block">
-            <pre>curl https://explorer.sha256coin.eu/api/getinfo</pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/getinfo" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/getinfo</a></pre>
           </div>
         </div>
       </div>
@@ -595,7 +641,7 @@
           </table>
           <div class="code-header">Example Request:</div>
           <div class="code-block">
-            <pre>curl https://explorer.sha256coin.eu/api/stats/history?hours=48</pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/stats/history?hours=48" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/stats/history?hours=48</a></pre>
           </div>
         </div>
 
@@ -609,7 +655,7 @@
           </div>
           <div class="code-header">Example Request:</div>
           <div class="code-block">
-            <pre>curl https://explorer.sha256coin.eu/api/health</pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/health" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/health</a></pre>
           </div>
           <div class="code-header">Example Response:</div>
           <div class="code-block">

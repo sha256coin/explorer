@@ -978,6 +978,71 @@ app.get('/api/charts/:metric', async (req, res) => {
   }
 });
 
+// Price Cache
+let priceCache = {
+  data: null,
+  timestamp: 0
+};
+const PRICE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Get S256 price from Live Coin Watch
+app.get('/api/price', async (req, res) => {
+  try {
+    const now = Date.now();
+    // Check if cache is still valid
+    if (priceCache.data && (now - priceCache.timestamp) < PRICE_CACHE_TTL) {
+      return res.json(priceCache.data);
+    }
+
+    const LCW_API_KEY = process.env.LCW_API_KEY;
+
+    if (!LCW_API_KEY) {
+      console.error('LCW_API_KEY is not configured in .env');
+      return res.status(503).json({ error: 'Price API key not configured' });
+    }
+
+    const response = await axios.post('https://api.livecoinwatch.com/coins/single', {
+      currency: 'USD',
+      code: 'S256',
+      meta: true
+    }, {
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': LCW_API_KEY
+      },
+      timeout: 5000
+    });
+
+    const priceData = response.data;
+
+    // Map to custom format
+    const customPriceData = {
+      name: priceData.name,
+      price: priceData.rate,
+      volume: priceData.volume,
+      cap: priceData.cap,
+      liquidity: priceData.liquidity
+    };
+
+    // Update cache
+    priceCache = {
+      data: customPriceData,
+      timestamp: now
+    };
+
+    res.json(customPriceData);
+  } catch (error) {
+    console.error('Error getting price from Live Coin Watch:', error.message);
+
+    // If API fails, return cached data even if expired, or return a useful error
+    if (priceCache.data) {
+      return res.json(priceCache.data);
+    }
+
+    res.status(503).json({ error: 'Price information currently unavailable' });
+  }
+});
+
 // Health check
 app.get('/api/health', async (req, res) => {
   try {
@@ -1095,8 +1160,8 @@ app.get('/api/supply', async (req, res) => {
     }
 
     res.json({
-      circulating: circulatingSupply,
-      total: 84000000,
+      circulatingSupply: circulatingSupply,
+      totalSupply: 84000000,
       maxSupply: 84000000,
       blocks: blockCount
     });
