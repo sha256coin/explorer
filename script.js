@@ -869,11 +869,7 @@ async function showAddressDetails(address) {
         </div>
       </div>
 
-      <div class="address-stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">Balance</div>
-          <div class="stat-value stat-balance">${data.balance.toFixed(8)} S256</div>
-        </div>
+      <div class="address-stats-grid top-stats">
         <div class="stat-card">
           <div class="stat-label">Total Received</div>
           <div class="stat-value">${data.received.toFixed(8)} S256</div>
@@ -885,6 +881,23 @@ async function showAddressDetails(address) {
         <div class="stat-card">
           <div class="stat-label">Transaction Count</div>
           <div class="stat-value">${data.txCount} transactions</div>
+        </div>
+      </div>
+
+      <div class="address-stats-grid balance-stats">
+        <div class="stat-card highlight">
+          <div class="stat-label">Spendable Balance</div>
+          <div class="stat-value stat-balance">${data.balance.toFixed(8)} S256</div>
+        </div>
+        ${data.immatureBalance > 0 ? `
+        <div class="stat-card highlight">
+          <div class="stat-label">Immature Balance</div>
+          <div class="stat-value immature-balance">${data.immatureBalance.toFixed(8)} S256</div>
+        </div>
+        ` : ''}
+        <div class="stat-card highlight total">
+          <div class="stat-label">Total Balance</div>
+          <div class="stat-value">${(data.balance + (data.immatureBalance || 0)).toFixed(8)} S256</div>
         </div>
       </div>
 

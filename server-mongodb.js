@@ -690,8 +690,23 @@ app.get('/api/address/:address', async (req, res) => {
 
     // Calculate balance from unspent outputs only
     let balance = 0;
+    let immatureBalance = 0;
     for (const utxo of utxos.values()) {
       balance += utxo.value;
+    }
+
+    // Calculate immature coinbase balance separately
+    for (const tx of allTxs) {
+      const isCoinbase = tx.vin && tx.vin.length > 0 && tx.vin[0].coinbase;
+      const confirmations = tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
+
+      if (isCoinbase && confirmations > 0 && confirmations <= COINBASE_MATURITY) {
+        for (const vout of tx.vout) {
+          if (vout.scriptPubKey.address === address) {
+            immatureBalance += vout.value;
+          }
+        }
+      }
     }
 
     // Collect all unique input txids that need prevout lookup
@@ -822,6 +837,7 @@ app.get('/api/address/:address', async (req, res) => {
     res.json({
       address,
       balance,
+      immatureBalance,
       received,
       sent,
       txCount: transactions.length,
