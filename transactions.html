@@ -544,7 +544,7 @@
           } else if (result.type === "transaction") {
             window.location.href = `/tx/${result.data.txid}`;
           } else if (result.type === "address") {
-            window.location.href = `/?search=${result.data.address}`;
+            window.location.href = `/address/${result.data.address}`;
           }
         } catch (error) {
           console.error("Search error:", error);

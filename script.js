@@ -175,6 +175,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Handle both single and double (or multiple) slashes for buggy pool URLs
   const blockMatch = path.match(/^\/*block\/([a-f0-9]+|\d+)$/i);
   const txMatch = path.match(/^\/*tx\/([a-f0-9]+)$/i);
+  const addressMatch = path.match(/^\/*address\/([a-z0-9]+)$/i);
 
   // Check for search query parameter
   const urlParams = new URLSearchParams(window.location.search);
@@ -192,6 +193,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // URL is /tx/:txid
     const txid = txMatch[1];
     showTransactionDetails(txid);
+  } else if (addressMatch) {
+    // URL is /address/:address
+    const address = addressMatch[1];
+    showAddressDetails(address);
   } else {
     // Default: load recent blocks
     loadRecentBlocks();
@@ -837,6 +842,12 @@ async function showAddressDetails(address) {
     if (data.error) {
       showError(data.error);
       return;
+    }
+
+    // Update URL to /address/:address for bookmarking/sharing
+    const newPath = `/address/${data.address}`;
+    if (window.location.pathname !== newPath) {
+      window.history.pushState({ address: data.address }, '', newPath);
     }
 
     const content = document.getElementById("address-content");

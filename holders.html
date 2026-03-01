@@ -364,7 +364,7 @@
               </thead>
               <tbody>
                 ${holders.map(holder => `
-                  <tr onclick="window.location.href='/?search=${holder.address}'">
+                  <tr onclick="window.location.href='/address/${holder.address}'">
                     <td>
                       <span class="rank-badge" style="${getRankStyle(holder.rank)}">
                         ${holder.rank}
