@@ -9,7 +9,12 @@ const blockSchema = new mongoose.Schema({
   height: {
     type: Number,
     required: true,
-    unique: true
+    index: true
+  },
+  isOrphan: {
+    type: Boolean,
+    default: false,
+    index: true
   },
   version: Number,
   merkleroot: String,

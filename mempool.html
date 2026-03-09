@@ -169,6 +169,20 @@
         color: white;
       }
 
+      .badge-nonstandard {
+        background-color: #dc2626;
+        color: #ffffff !important;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-weight: 800;
+        font-size: 0.75rem;
+        margin-top: 8px;
+        display: inline-block;
+        text-transform: uppercase;
+        box-shadow: 0 0 12px rgba(220, 38, 38, 0.5);
+        border: 1px solid #7f1d1d;
+      }
+
       .time-badge {
         font-size: 0.85rem;
         color: var(--text-light);
@@ -745,7 +759,7 @@
                                 ? `<div class="tx-io-address"><strong>To Address:</strong> ${output.scriptPubKey.address}</div>`
                                 : `<div class="tx-io-detail"><strong>Type:</strong> ${output.scriptPubKey.type}</div>`
                             }
-                        </div>
+                            ${output.scriptPubKey.type === 'nonstandard' ? '<div class="badge-nonstandard">⚠️ Non-Standard / Unspendable</div>' : ''}                        </div>
                     `).join("")}
                 </div>
             </div>

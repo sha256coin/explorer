@@ -179,11 +179,11 @@ app.get('/api/blocks/recent/:count?', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const skip = (page - 1) * count;
 
-    const blocks = await Block.find()
+    const blocks = await Block.find({ isOrphan: false })
       .sort({ height: -1 })
       .skip(skip)
       .limit(count)
-      .select('height hash time nTx size difficulty confirmations')
+      .select('height hash time nTx size difficulty confirmations isOrphan')
       .lean();
 
     // Calculate confirmations dynamically for each block
@@ -208,11 +208,11 @@ app.get('/api/transactions/recent/:count?', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const skip = (page - 1) * count;
 
-    const transactions = await Transaction.find()
+    const transactions = await Transaction.find({ isOrphan: false })
       .sort({ blockheight: -1, _id: -1 })
       .skip(skip)
       .limit(count)
-      .select('txid blockhash blockheight time blocktime size vsize vin vout')
+      .select('txid blockhash blockheight time blocktime size vsize vin vout isOrphan')
       .lean();
 
     // Calculate confirmations and get block times
@@ -517,7 +517,7 @@ app.get('/api/search/:query', searchLimiter, async (req, res) => {
 
     // Try as block height
     if (/^\d+$/.test(query)) {
-      const block = await Block.findOne({ height: parseInt(query) }).lean();
+      const block = await Block.findOne({ height: parseInt(query), isOrphan: false }).lean();
       if (block) {
         return res.json({ type: 'block', data: block });
       }
@@ -648,7 +648,7 @@ app.get('/api/address/:address', async (req, res) => {
     const utxos = new Map(); // Map of txid:vout -> {value, txid, vout}
 
     // Get all transactions to build complete UTXO set for this address
-    const allTxs = await Transaction.find({}).lean();
+    const allTxs = await Transaction.find({ isOrphan: false }).lean();
 
     // First pass: Find all outputs to this address (excluding immature coinbase)
     for (const tx of allTxs) {
@@ -1197,7 +1197,7 @@ app.get('/api/holders', async (req, res) => {
     const COINBASE_MATURITY = 200; // S256 coin maturity requirement
 
     // Get all transactions to calculate balances using UTXO method
-    const transactions = await Transaction.find({}).lean();
+    const transactions = await Transaction.find({ isOrphan: false }).lean();
 
     // Build UTXO set
     const utxos = {}; // Map of txid:vout -> {address, value}
@@ -1373,6 +1373,7 @@ app.get('/ext/getaddresstxs/:address/:start/:limit', async (req, res) => {
 
     // Query transactions where address is in vout OR vin
     const transactions = await Transaction.find({
+      isOrphan: false,
       $or: [
         { 'vout.scriptPubKey.address': address },
         { 'vin.prevout.scriptPubKey.address': address }

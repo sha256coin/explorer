@@ -81,16 +81,18 @@ async function fetchPrevouts(vin) {
 // Sync a single block
 async function syncBlock(height) {
   try {
-    // Check if block already exists
-    const existingBlock = await Block.findOne({ height });
-    if (existingBlock) {
-      console.log(`⏭️  Block ${height} already synced`);
-      return;
-    }
-
     // Get block from RPC
     const blockHash = await rpcCall('getblockhash', [height]);
     const blockData = await rpcCall('getblock', [blockHash, 2]);
+
+    // Check if this block hash already exists and is NOT an orphan
+    const existingBlock = await Block.findOne({ hash: blockHash, isOrphan: false });
+    if (existingBlock && existingBlock.height === height) {
+      // console.log(`⏭️  Block ${height} already synced (${blockHash})`);
+      return;
+    }
+
+    console.log(`🔄 Syncing block ${height} (${blockHash})...`);
 
     // Process transactions
     const txids = [];
@@ -108,7 +110,8 @@ async function syncBlock(height) {
         {
           ...txData,
           blockheight: height,
-          blockhash: blockHash
+          blockhash: blockHash,
+          isOrphan: false // Ensure it's not marked as orphan if we're re-syncing
         },
         { upsert: true, new: true }
       );
@@ -121,7 +124,8 @@ async function syncBlock(height) {
       { hash: blockHash },
       {
         ...blockData,
-        tx: txids
+        tx: txids,
+        isOrphan: false
       },
       { upsert: true, new: true }
     );
@@ -133,17 +137,72 @@ async function syncBlock(height) {
   }
 }
 
+// Check for chain reorg and handle rollback
+async function checkForReorg() {
+  try {
+    // Get highest synced block from DB
+    const lastBlock = await Block.findOne({ isOrphan: false }).sort({ height: -1 });
+    if (!lastBlock) return -1;
+
+    let height = lastBlock.height;
+    let reorgDetected = false;
+
+    // Check backwards from current height
+    while (height >= 0) {
+      const dbBlock = await Block.findOne({ height, isOrphan: false });
+      if (!dbBlock) {
+        height--;
+        continue;
+      }
+
+      const rpcHash = await rpcCall('getblockhash', [height]);
+
+      if (dbBlock.hash === rpcHash) {
+        // Found the common ancestor
+        if (reorgDetected) {
+          console.log(`🔗 Fork point found at height ${height}. Continuing sync from ${height + 1}.`);
+        }
+        break;
+      } else {
+        // Mismatch! This block is now an orphan
+        reorgDetected = true;
+        console.log(`⚠️  Reorg detected at height ${height}! DB hash: ${dbBlock.hash}, RPC hash: ${rpcHash}`);
+        
+        // Mark block and its transactions as orphans
+        await Block.updateOne({ hash: dbBlock.hash }, { isOrphan: true, confirmations: -1 });
+        await Transaction.updateMany({ blockhash: dbBlock.hash }, { isOrphan: true, confirmations: -1 });
+        
+        height--;
+      }
+
+      // Safety limit: don't rollback more than 100 blocks at a time
+      if (lastBlock.height - height > 100) {
+        console.warn('⚠️  Deep reorg detected (>100 blocks). Manual intervention might be needed.');
+        break;
+      }
+    }
+
+    return height;
+  } catch (error) {
+    console.error('❌ Reorg check error:', error.message);
+    return -1;
+  }
+}
+
 // Initial sync (catch up with blockchain)
 async function initialSync() {
   try {
     console.log('🔄 Starting initial sync...');
 
-    // Get current blockchain height
+    // 1. Check for reorg first
+    await checkForReorg();
+
+    // 2. Get current blockchain height
     const blockchainInfo = await rpcCall('getblockchaininfo');
     const chainHeight = blockchainInfo.blocks;
 
-    // Get highest synced block
-    const lastBlock = await Block.findOne().sort({ height: -1 });
+    // 3. Get highest synced block
+    const lastBlock = await Block.findOne({ isOrphan: false }).sort({ height: -1 });
     const startHeight = lastBlock ? lastBlock.height + 1 : 0;
 
     console.log(`📊 Chain height: ${chainHeight}`);
@@ -176,15 +235,24 @@ async function monitorNewBlocks() {
   try {
     isSyncing = true;
 
-    // Get current blockchain height
+    // 1. Check for reorg before proceeding
+    const forkPoint = await checkForReorg();
+    
+    // 2. Get current blockchain height
     const blockchainInfo = await rpcCall('getblockchaininfo');
     const chainHeight = blockchainInfo.blocks;
 
-    // Sync new blocks
-    if (chainHeight > currentHeight) {
-      console.log(`🔔 New blocks detected: ${currentHeight + 1} to ${chainHeight}`);
+    // 3. Determine where to start syncing
+    // If we had a reorg, start from forkPoint + 1
+    // Otherwise, start from highest synced block + 1
+    const lastBlock = await Block.findOne({ isOrphan: false }).sort({ height: -1 });
+    let startSyncHeight = lastBlock ? lastBlock.height + 1 : 0;
 
-      for (let height = currentHeight + 1; height <= chainHeight; height++) {
+    // Sync new blocks
+    if (chainHeight >= startSyncHeight) {
+      console.log(`🔔 Syncing blocks: ${startSyncHeight} to ${chainHeight}`);
+
+      for (let height = startSyncHeight; height <= chainHeight; height++) {
         await syncBlock(height);
       }
 

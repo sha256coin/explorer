@@ -477,7 +477,7 @@ async function showBlockDetails(hashOrHeight) {
       }
       <div class="detail-row">
         <div class="detail-label">Confirmations:</div>
-        <div class="detail-value">${block.confirmations.toLocaleString()}</div>
+        <div class="detail-value">${block.isOrphan ? '<span class="status-orphan">ORPHANED</span>' : block.confirmations.toLocaleString()}</div>
       </div>
       <div class="detail-row">
         <div class="detail-label">Timestamp:</div>
@@ -603,7 +603,7 @@ async function showTransactionDetails(txid) {
       <div class="detail-row">
         <div class="detail-label">Confirmations:</div>
         <div class="detail-value">${
-          tx.confirmations ? tx.confirmations.toLocaleString() : "Unconfirmed"
+          tx.isOrphan ? '<span class="status-orphan">ORPHANED</span>' : (tx.confirmations ? tx.confirmations.toLocaleString() : "Unconfirmed")
         }</div>
       </div>
       <div class="detail-row">
@@ -674,6 +674,7 @@ async function showTransactionDetails(txid) {
                   ? `<div class="tx-io-address"><strong>To Address:</strong> ${output.scriptPubKey.address}</div>`
                   : `<div class="tx-io-detail"><strong>Type:</strong> ${output.scriptPubKey.type}</div>`
               }
+              ${output.scriptPubKey.type === 'nonstandard' ? '<div class="badge-nonstandard">⚠️ Non-Standard / Unspendable</div>' : ''}
             </div>
           `
             )
@@ -725,7 +726,7 @@ async function showTransactionModal(txid) {
       <div class="detail-row">
         <div class="detail-label">Confirmations:</div>
         <div class="detail-value">${
-          tx.confirmations ? tx.confirmations.toLocaleString() : "Unconfirmed"
+          tx.isOrphan ? '<span class="status-orphan">ORPHANED</span>' : (tx.confirmations ? tx.confirmations.toLocaleString() : "Unconfirmed")
         }</div>
       </div>
       <div class="detail-row">
@@ -796,6 +797,7 @@ async function showTransactionModal(txid) {
                   ? `<div class="tx-io-address"><strong>To Address:</strong> ${output.scriptPubKey.address}</div>`
                   : `<div class="tx-io-detail"><strong>Type:</strong> ${output.scriptPubKey.type}</div>`
               }
+              ${output.scriptPubKey.type === 'nonstandard' ? '<div class="badge-nonstandard">⚠️ Non-Standard / Unspendable</div>' : ''}
             </div>
           `
             )

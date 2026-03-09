@@ -18,6 +18,11 @@ const transactionSchema = new mongoose.Schema({
     index: true
   },
   confirmations: Number,
+  isOrphan: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
   time: {
     type: Number,
     index: true
