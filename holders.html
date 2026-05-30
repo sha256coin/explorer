@@ -6,6 +6,7 @@
     <title>Top Holders - S256 Block Explorer</title>
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
     <link rel="stylesheet" href="/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
       .holders-container {
         max-width: 1400px;
@@ -258,6 +259,78 @@
         font-size: 1.3rem;
       }
 
+      /* Distribution Chart Styles */
+      .distribution-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+      }
+
+      .distribution-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .distribution-card h3 {
+        margin-bottom: 1.5rem;
+        color: var(--primary);
+        align-self: flex-start;
+      }
+
+      .chart-wrapper {
+        width: 100%;
+        max-width: 400px;
+        margin: 0 auto;
+        position: relative;
+      }
+
+      .distribution-info {
+        width: 100%;
+        margin-top: 1rem;
+      }
+
+      .dist-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .dist-item:last-child {
+        border-bottom: none;
+      }
+
+      .dist-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+      }
+
+      .dist-color {
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+      }
+
+      .dist-value {
+        font-weight: 700;
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 992px) {
+        .distribution-container {
+          grid-template-columns: 1fr;
+        }
+      }
+
       @media (max-width: 768px) {
         .holders-table {
           font-size: 0.85rem;
@@ -363,6 +436,28 @@
         </div>
       </div>
 
+      <!-- Wealth Distribution -->
+      <div class="distribution-container">
+        <div class="distribution-card">
+          <h3>📊 Wealth Distribution</h3>
+          <div class="chart-wrapper">
+            <canvas id="wealthChart"></canvas>
+          </div>
+          <div class="distribution-info" id="wealth-info">
+            <!-- Legend will be injected here -->
+          </div>
+        </div>
+        <div class="distribution-card">
+          <h3>📈 Top Holders Concentration</h3>
+          <div class="chart-wrapper">
+            <canvas id="concentrationChart"></canvas>
+          </div>
+          <div class="distribution-info" id="concentration-info">
+            <!-- Legend will be injected here -->
+          </div>
+        </div>
+      </div>
+
       <div id="holders-content">
         <div class="loading-container">
           <div class="spinner"></div>
@@ -415,10 +510,107 @@
         icon.textContent = theme === "dark" ? "☀️" : "🌙";
       }
 
+      // Distribution Charts
+      let wealthChart = null;
+      let concentrationChart = null;
+
+      function initCharts(holders, circulatingSupply) {
+        if (holders.length === 0 || circulatingSupply === 0) return;
+
+        // 1. Wealth Distribution Data
+        const wealthGroups = [
+          { label: 'Whales (> 1%)', min: circulatingSupply * 0.01, color: '#a300ff', count: 0, total: 0 },
+          { label: 'Investors (0.1% - 1%)', min: circulatingSupply * 0.001, max: circulatingSupply * 0.01, color: '#00d4ff', count: 0, total: 0 },
+          { label: 'Holders (0.01% - 0.1%)', min: circulatingSupply * 0.0001, max: circulatingSupply * 0.001, color: '#39ff14', count: 0, total: 0 },
+          { label: 'Community (< 0.01%)', max: circulatingSupply * 0.0001, color: '#ff007f', count: 0, total: 0 }
+        ];
+
+        holders.forEach(h => {
+          for (const group of wealthGroups) {
+            if (group.min && h.balance < group.min) continue;
+            if (group.max && h.balance >= group.max) continue;
+            group.count++;
+            group.total += h.balance;
+            break;
+          }
+        });
+
+        // 2. Concentration Data
+        const top10 = holders.slice(0, 10).reduce((sum, h) => sum + h.balance, 0);
+        const top50 = holders.slice(0, 50).reduce((sum, h) => sum + h.balance, 0);
+        const top100 = holders.slice(0, 100).reduce((sum, h) => sum + h.balance, 0);
+        const others = circulatingSupply - top100;
+
+        const concentrationData = [
+          { label: 'Top 10', value: top10, color: '#a300ff' },
+          { label: '11 - 50', value: top50 - top10, color: '#00d4ff' },
+          { label: '51 - 100', value: top100 - top50, color: '#39ff14' },
+          { label: 'Others', value: Math.max(0, others), color: '#333' }
+        ];
+
+        renderPieChart('wealthChart', wealthGroups.map(g => g.label), wealthGroups.map(g => g.total), wealthGroups.map(g => g.color), 'wealth-info', circulatingSupply);
+        renderPieChart('concentrationChart', concentrationData.map(d => d.label), concentrationData.map(d => d.value), concentrationData.map(d => d.color), 'concentration-info', circulatingSupply);
+      }
+
+      function renderPieChart(canvasId, labels, data, colors, infoId, total) {
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+        if (canvasId === 'wealthChart' && wealthChart) wealthChart.destroy();
+        if (canvasId === 'concentrationChart' && concentrationChart) concentrationChart.destroy();
+
+        const config = {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: data,
+              backgroundColor: colors,
+              borderWidth: 2,
+              borderColor: isDark ? '#1a1a1a' : '#fff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const value = context.raw;
+                    const percent = ((value / total) * 100).toFixed(2);
+                    return ` ${context.label}: ${value.toLocaleString()} S256 (${percent}%)`;
+                  }
+                }
+              }
+            },
+            cutout: '70%'
+          }
+        };
+
+        const chart = new Chart(ctx, config);
+        if (canvasId === 'wealthChart') wealthChart = chart;
+        else concentrationChart = chart;
+
+        // Render Legend
+        const info = document.getElementById(infoId);
+        info.innerHTML = labels.map((label, i) => `
+          <div class="dist-item">
+            <div class="dist-label">
+              <div class="dist-color" style="background: ${colors[i]}"></div>
+              ${label}
+            </div>
+            <div class="dist-value">${((data[i] / total) * 100).toFixed(2)}%</div>
+          </div>
+        `).join('');
+      }
+
       // Load holders data
       async function loadHolders() {
         try {
-          const response = await fetch(`${API_BASE}/api/holders?limit=100`);
+          // Fetch more than 100 for distribution stats (e.g. 1000)
+          const response = await fetch(`${API_BASE}/api/holders?limit=1000`);
           const data = await response.json();
 
           if (data.error) {
@@ -437,6 +629,9 @@
           const topPercent = circulatingSupply > 0 ? Math.min((topHoldersBalance / circulatingSupply * 100), 100).toFixed(2) : 0;
           document.getElementById('top-holders-percent').textContent = topPercent + '%';
 
+          // Initialize Charts
+          initCharts(holders, circulatingSupply);
+
           // Render holders table
           if (holders.length === 0) {
             document.getElementById('holders-content').innerHTML = `
@@ -448,7 +643,8 @@
             return;
           }
 
-          renderHoldersTable(holders);
+          // Only show top 100 in table for performance
+          renderHoldersTable(holders.slice(0, 100));
         } catch (error) {
           console.error('Error loading holders:', error);
           showError('Failed to load holders data. Please try again later.');
