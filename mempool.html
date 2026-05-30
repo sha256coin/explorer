@@ -83,6 +83,178 @@
         background-clip: text;
       }
 
+      /* Visual Mempool Styles */
+      .visual-mempool {
+        margin-bottom: 3rem;
+        background: var(--bg-card);
+        padding: 2rem;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .visual-mempool h2 {
+        margin-bottom: 1.5rem;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .mempool-blocks-container {
+        display: flex;
+        gap: 2rem;
+        padding: 1rem 0;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--primary) transparent;
+      }
+
+      .mempool-block {
+        flex: 0 0 300px;
+        background: rgba(163, 0, 255, 0.05);
+        border: 2px dashed var(--border);
+        border-radius: 12px;
+        padding: 1rem;
+        position: relative;
+        min-height: 400px;
+        display: flex;
+        flex-direction: column;
+        transition: all 0.3s ease;
+      }
+
+      .mempool-block.active {
+        border-style: solid;
+        border-color: var(--primary);
+        background: rgba(163, 0, 255, 0.08);
+        box-shadow: 0 0 20px rgba(163, 0, 255, 0.2);
+      }
+
+      .mempool-block-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--text-light);
+        text-transform: uppercase;
+      }
+
+      .mempool-block-body {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: 2px;
+        align-content: start;
+        flex-grow: 1;
+      }
+
+      .mempool-tx-pixel {
+        aspect-ratio: 1/1;
+        background: var(--border);
+        border-radius: 1px;
+        cursor: pointer;
+        transition: transform 0.1s ease;
+      }
+
+      .mempool-tx-pixel:hover {
+        transform: scale(2.5);
+        z-index: 10;
+        box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      }
+
+      .mempool-block-footer {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+        font-size: 0.85rem;
+      }
+
+      .mempool-progress-bar {
+        height: 6px;
+        background: var(--border);
+        border-radius: 3px;
+        margin-top: 0.5rem;
+        overflow: hidden;
+      }
+
+      .mempool-progress-fill {
+        height: 100%;
+        background: var(--gradient);
+        width: 0%;
+        transition: width 0.5s ease;
+      }
+
+      /* Fee Colors */
+      .tx-fee-purple { background: #a300ff; box-shadow: 0 0 5px #a300ff; }
+      .tx-fee-red { background: #ff4444; }
+      .tx-fee-orange { background: #ffa500; }
+      .tx-fee-yellow { background: #ffd700; }
+      .tx-fee-green { background: #39ff14; }
+      .tx-fee-blue { background: #00d4ff; }
+
+      .visual-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        margin-top: 2rem;
+        padding: 1rem;
+        background: rgba(0,0,0,0.1);
+        border-radius: 8px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: var(--text-light);
+      }
+
+      .legend-color {
+        width: 14px;
+        height: 14px;
+        border-radius: 2px;
+      }
+
+      .pressure-meter {
+        margin-bottom: 2rem;
+      }
+
+      .pressure-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        font-weight: 700;
+        font-size: 0.9rem;
+      }
+
+      .pressure-bar-container {
+        height: 24px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .pressure-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #39ff14 0%, #ffd700 50%, #ff4444 100%);
+        width: 0%;
+        transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .pressure-bar-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: white;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+      }
+
       .mempool-empty {
         text-align: center;
         padding: 4rem 2rem;
@@ -315,6 +487,53 @@
             <div class="mempool-stat-value" id="stat-avg-fee">-</div>
           </div>
         </div>
+
+        <!-- Visual Pressure Monitor -->
+        <div class="visual-mempool">
+          <h2>⚡ Real-time Mempool Monitor</h2>
+          
+          <div class="pressure-meter">
+            <div class="pressure-label">
+              <span>Mempool Congestion</span>
+              <span id="pressure-percent">0%</span>
+            </div>
+            <div class="pressure-bar-container">
+              <div class="pressure-bar-fill" id="pressure-bar"></div>
+              <div class="pressure-bar-text" id="pressure-text">STABLE</div>
+            </div>
+          </div>
+
+          <div class="mempool-blocks-container" id="visual-blocks">
+            <!-- Blocks representing pending transactions will appear here -->
+          </div>
+
+          <div class="visual-legend">
+            <div class="legend-item">
+              <div class="legend-color tx-fee-purple"></div>
+              <span>> 100 sat/vB</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color tx-fee-red"></div>
+              <span>50 - 100 sat/vB</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color tx-fee-orange"></div>
+              <span>10 - 50 sat/vB</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color tx-fee-yellow"></div>
+              <span>5 - 10 sat/vB</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color tx-fee-green"></div>
+              <span>1 - 5 sat/vB</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color tx-fee-blue"></div>
+              <span>< 1 sat/vB</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div id="mempool-content">
@@ -413,6 +632,12 @@
 
           document.getElementById('mempool-stats-section').style.display = 'block';
 
+          // Update Pressure Monitor
+          updatePressureMonitor(stats);
+
+          // Update Visual Blocks
+          updateVisualBlocks(transactions);
+
           // Populate the mempoolTransactions map
           mempoolTransactions.clear();
           transactions.forEach(tx => {
@@ -427,6 +652,93 @@
           refreshBtn.classList.remove('loading');
           refreshBtn.disabled = false;
         }
+      }
+
+      function updatePressureMonitor(stats) {
+        const MAX_BLOCK_SIZE = 1000000; // 1MB standard S256 block size
+        const pressure = Math.min((stats.totalSize / MAX_BLOCK_SIZE) * 100, 100);
+        
+        const bar = document.getElementById('pressure-bar');
+        const percent = document.getElementById('pressure-percent');
+        const text = document.getElementById('pressure-text');
+
+        bar.style.width = `${pressure}%`;
+        percent.textContent = `${pressure.toFixed(1)}%`;
+
+        if (pressure > 90) {
+          text.textContent = "CRITICAL CONGESTION";
+          bar.style.filter = "hue-rotate(-45deg) brightness(1.2)";
+        } else if (pressure > 50) {
+          text.textContent = "HIGH PRESSURE";
+          bar.style.filter = "none";
+        } else if (pressure > 20) {
+          text.textContent = "MODERATE TRAFFIC";
+          bar.style.filter = "none";
+        } else {
+          text.textContent = "STABLE";
+          bar.style.filter = "none";
+        }
+      }
+
+      function updateVisualBlocks(transactions) {
+        const MAX_BLOCK_VSIZE = 1000000; // 1MB
+        const blocks = [];
+        let currentBlock = { vsize: 0, txs: [], fees: 0 };
+
+        // Sort by fee rate descending to simulate miner selection
+        const sortedTxs = [...transactions].sort((a, b) => {
+          const rateA = a.fees?.base && a.vsize ? a.fees.base / a.vsize : 0;
+          const rateB = b.fees?.base && b.vsize ? b.fees.base / b.vsize : 0;
+          return rateB - rateA;
+        });
+
+        sortedTxs.forEach(tx => {
+          if (currentBlock.vsize + tx.vsize > MAX_BLOCK_VSIZE) {
+            blocks.push(currentBlock);
+            currentBlock = { vsize: 0, txs: [], fees: 0 };
+          }
+          currentBlock.vsize += tx.vsize;
+          currentBlock.fees += (tx.fees?.base || 0);
+          currentBlock.txs.push(tx);
+        });
+        blocks.push(currentBlock);
+
+        const container = document.getElementById('visual-blocks');
+        container.innerHTML = blocks.map((block, i) => {
+          const fullness = (block.vsize / MAX_BLOCK_VSIZE) * 100;
+          return `
+            <div class="mempool-block ${i === 0 ? 'active' : ''}">
+              <div class="mempool-block-header">
+                <span>${i === 0 ? 'Next Block' : `Pending Block +${i}`}</span>
+                <span>${(block.vsize / 1024).toFixed(0)} KB</span>
+              </div>
+              <div class="mempool-block-body">
+                ${block.txs.map(tx => {
+                  const feeRate = tx.fees?.base && tx.vsize ? (tx.fees.base / tx.vsize) * 100000000 / 1000 : 0; // sat/vB
+                  let colorClass = 'tx-fee-blue';
+                  if (feeRate > 100) colorClass = 'tx-fee-purple';
+                  else if (feeRate > 50) colorClass = 'tx-fee-red';
+                  else if (feeRate > 10) colorClass = 'tx-fee-orange';
+                  else if (feeRate > 5) colorClass = 'tx-fee-yellow';
+                  else if (feeRate > 1) colorClass = 'tx-fee-green';
+
+                  return `<div class="mempool-tx-pixel ${colorClass}" 
+                               title="${feeRate.toFixed(2)} sat/vB | ${formatBytes(tx.size)}"
+                               onclick="showTransactionModal('${tx.txid}')"></div>`;
+                }).join('')}
+              </div>
+              <div class="mempool-block-footer">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                  <span style="color: var(--text-light)">Total Fees</span>
+                  <span style="font-weight: 700; color: var(--primary)">${block.fees.toFixed(4)} S256</span>
+                </div>
+                <div class="mempool-progress-bar">
+                  <div class="mempool-progress-fill" style="width: ${fullness}%"></div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
       }
 
       function renderMempoolTable(transactions) {
