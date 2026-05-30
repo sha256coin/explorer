@@ -230,6 +230,7 @@
       <div class="api-nav">
         <a href="#price">Price Info</a>
         <a href="#blockchain-info">Blockchain Info</a>
+        <a href="#holders">Holders</a>
         <a href="#blocks">Blocks</a>
         <a href="#transactions">Transactions</a>
         <a href="#addresses">Addresses</a>
@@ -284,6 +285,90 @@
   "totalSupply": 84000000,
   "maxSupply": 84000000,
   "blocks": 16316
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Holders -->
+      <div class="api-section" id="holders">
+        <h2>💎 Holders</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/holders</span>
+          </div>
+          <div class="endpoint-description">
+            Returns the top holders (rich list). Data is cached for 10 minutes.
+          </div>
+          <table class="param-table">
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">limit</span></td>
+                <td>integer</td>
+                <td>Number of holders to return (optional, default: 100)</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="code-header">Example Request:</div>
+          <div class="code-block">
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/holders?limit=10" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/holders?limit=10</a></pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method">GET</span>
+            <span class="endpoint-path">/api/holders/rank</span>
+          </div>
+          <div class="endpoint-description">
+            Returns the rank and statistics for a specific address or balance value. This allows you to see where you land on the rich list!
+          </div>
+          <table class="param-table">
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">address</span></td>
+                <td>string</td>
+                <td>S256 address to look up (optional)</td>
+              </tr>
+              <tr>
+                <td><span class="param-name">balance</span></td>
+                <td>number</td>
+                <td>Balance value to determine rank (optional)</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="code-header">Example Request (by Address):</div>
+          <div class="code-block">
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/holders/rank?address=Sfu8VLiVd77sKuShL7aXU65egZr8MLCNrh" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/holders/rank?address=Sfu8VLiVd77sKuShL7aXU65egZr8MLCNrh</a></pre>
+          </div>
+          <div class="code-header">Example Request (by Balance):</div>
+          <div class="code-block">
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/holders/rank?balance=5000" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/holders/rank?balance=5000</a></pre>
+          </div>
+          <div class="code-header">Example Response (by Balance):</div>
+          <div class="code-block">
+            <pre>{
+  "circulatingSupply": 1631600,
+  "totalHolders": 450,
+  "searchBalance": 5000,
+  "rank": 25,
+  "percentage": 0.3064
 }</pre>
           </div>
         </div>

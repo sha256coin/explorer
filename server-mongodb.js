@@ -1001,6 +1001,139 @@ let priceCache = {
 };
 const PRICE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Holders Cache
+let holdersCache = {
+  data: null,
+  timestamp: 0,
+  isCalculating: false
+};
+const HOLDERS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+async function calculateHolders() {
+  const now = Date.now();
+  
+  // Return cached data if valid
+  if (holdersCache.data && (now - holdersCache.timestamp) < HOLDERS_CACHE_TTL) {
+    return holdersCache.data;
+  }
+
+  // If already calculating, wait or return old data
+  if (holdersCache.isCalculating && holdersCache.data) {
+    return holdersCache.data;
+  }
+
+  holdersCache.isCalculating = true;
+
+  try {
+    // Get current block height for coinbase maturity check
+    const latestBlock = await Block.findOne().sort({ height: -1 });
+    const currentHeight = latestBlock ? latestBlock.height : 0;
+    const COINBASE_MATURITY = 200; // S256 coin maturity requirement
+
+    // Get all transactions to calculate balances using UTXO method
+    // Optimization: only get necessary fields
+    const transactions = await Transaction.find(
+      { isOrphan: false }, 
+      'txid blockheight vin vout'
+    ).lean();
+
+    // Build UTXO set
+    const utxos = {}; // Map of txid:vout -> {address, value}
+    const txCounts = {}; // Map of address -> unique txid set
+
+    // First pass: Create all outputs (excluding immature coinbase)
+    for (const tx of transactions) {
+      // Check if it's a coinbase transaction
+      const isCoinbase = tx.vin && tx.vin.length > 0 && tx.vin[0].coinbase;
+
+      // Calculate confirmations
+      const confirmations = tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
+
+      // Skip immature coinbase outputs
+      if (isCoinbase && confirmations <= COINBASE_MATURITY) {
+        continue;
+      }
+
+      for (const vout of tx.vout) {
+        if (vout.scriptPubKey && vout.scriptPubKey.address) {
+          const utxoKey = `${tx.txid}:${vout.n}`;
+          utxos[utxoKey] = {
+            address: vout.scriptPubKey.address,
+            value: vout.value
+          };
+
+          // Track unique transactions per address
+          if (!txCounts[vout.scriptPubKey.address]) {
+            txCounts[vout.scriptPubKey.address] = new Set();
+          }
+          txCounts[vout.scriptPubKey.address].add(tx.txid);
+        }
+      }
+    }
+
+    // Second pass: Mark spent outputs
+    for (const tx of transactions) {
+      for (const vin of tx.vin) {
+        if (!vin.coinbase && vin.txid && vin.vout !== undefined) {
+          const utxoKey = `${vin.txid}:${vin.vout}`;
+          delete utxos[utxoKey];
+        }
+      }
+    }
+
+    // Calculate balances from unspent outputs
+    const balances = {};
+    for (const utxo of Object.values(utxos)) {
+      balances[utxo.address] = (balances[utxo.address] || 0) + utxo.value;
+    }
+
+    // Convert to array and sort by balance
+    const allHolders = Object.entries(balances)
+      .map(([address, balance]) => ({
+        address,
+        balance,
+        txCount: txCounts[address] ? txCounts[address].size : 0
+      }))
+      .filter(h => h.balance > 0)
+      .sort((a, b) => b.balance - a.balance);
+
+    // Calculate total supply
+    const latestStats = await Stats.findOne().sort({ timestamp: -1 });
+    const blockCount = latestStats ? latestStats.blocks : 0;
+
+    const initialReward = 100;
+    const halvingInterval = 420000;
+    let circulatingSupply = 0;
+    let currentBlock = 0;
+    let currentReward = initialReward;
+
+    while (currentBlock < blockCount) {
+      const nextHalving = Math.min(currentBlock + halvingInterval, blockCount);
+      const blocksInThisEra = nextHalving - currentBlock;
+      circulatingSupply += blocksInThisEra * currentReward;
+      currentBlock = nextHalving;
+      currentReward /= 2;
+    }
+
+    holdersCache = {
+      data: {
+        allHolders,
+        circulatingSupply,
+        totalHolders: allHolders.length,
+        timestamp: now
+      },
+      timestamp: now,
+      isCalculating: false
+    };
+
+    return holdersCache.data;
+  } catch (error) {
+    holdersCache.isCalculating = false;
+    console.error('Error calculating holders:', error);
+    throw error;
+  }
+}
+
 // Get S256 price from Live Coin Watch
 app.get('/api/price', async (req, res) => {
   try {
@@ -1190,111 +1323,85 @@ app.get('/api/supply', async (req, res) => {
 app.get('/api/holders', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 100;
+    const { allHolders, circulatingSupply, totalHolders } = await calculateHolders();
 
-    // Get current block height for coinbase maturity check
-    const latestBlock = await Block.findOne().sort({ height: -1 });
-    const currentHeight = latestBlock ? latestBlock.height : 0;
-    const COINBASE_MATURITY = 200; // S256 coin maturity requirement
-
-    // Get all transactions to calculate balances using UTXO method
-    const transactions = await Transaction.find({ isOrphan: false }).lean();
-
-    // Build UTXO set
-    const utxos = {}; // Map of txid:vout -> {address, value}
-    const txCounts = {}; // Map of address -> unique txid set
-
-    // First pass: Create all outputs (excluding immature coinbase)
-    for (const tx of transactions) {
-      // Check if it's a coinbase transaction
-      const isCoinbase = tx.vin && tx.vin.length > 0 && tx.vin[0].coinbase;
-
-      // Calculate confirmations (only if we have blockheight)
-      const confirmations = tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
-
-      // Skip immature coinbase outputs (need MORE than maturity confirmations)
-      if (isCoinbase && confirmations <= COINBASE_MATURITY) {
-        continue;
-      }
-
-      for (const vout of tx.vout) {
-        if (vout.scriptPubKey && vout.scriptPubKey.address) {
-          const utxoKey = `${tx.txid}:${vout.n}`;
-          utxos[utxoKey] = {
-            address: vout.scriptPubKey.address,
-            value: vout.value
-          };
-
-          // Track unique transactions per address
-          if (!txCounts[vout.scriptPubKey.address]) {
-            txCounts[vout.scriptPubKey.address] = new Set();
-          }
-          txCounts[vout.scriptPubKey.address].add(tx.txid);
-        }
-      }
-    }
-
-    // Second pass: Mark spent outputs
-    for (const tx of transactions) {
-      for (const vin of tx.vin) {
-        if (!vin.coinbase && vin.txid && vin.vout !== undefined) {
-          const utxoKey = `${vin.txid}:${vin.vout}`;
-          // Remove spent UTXO
-          delete utxos[utxoKey];
-        }
-      }
-    }
-
-    // Calculate balances from unspent outputs only
-    const balances = {};
-    for (const utxo of Object.values(utxos)) {
-      balances[utxo.address] = (balances[utxo.address] || 0) + utxo.value;
-    }
-
-    // Convert to array and sort by balance
-    const holders = Object.entries(balances)
-      .map(([address, balance]) => ({
-        address,
-        balance,
-        txCount: txCounts[address] ? txCounts[address].size : 0
-      }))
-      .filter(h => h.balance > 0) // Only addresses with positive balance
-      .sort((a, b) => b.balance - a.balance)
-      .slice(0, limit);
-
-    // Calculate total supply and percentages
-    const latestStats = await Stats.findOne().sort({ timestamp: -1 });
-    const blockCount = latestStats ? latestStats.blocks : 0;
-
-    // S256 supply calculation
-    const initialReward = 100;
-    const halvingInterval = 420000;
-    let circulatingSupply = 0;
-    let currentBlock = 0;
-    let currentReward = initialReward;
-
-    while (currentBlock < blockCount) {
-      const nextHalving = Math.min(currentBlock + halvingInterval, blockCount);
-      const blocksInThisEra = nextHalving - currentBlock;
-      circulatingSupply += blocksInThisEra * currentReward;
-      currentBlock = nextHalving;
-      currentReward /= 2;
-    }
-
-    // Add rank and percentage
-    const holdersWithStats = holders.map((holder, index) => ({
+    const topHolders = allHolders.slice(0, limit).map((holder, index) => ({
       rank: index + 1,
       ...holder,
       percentage: circulatingSupply > 0 ? (holder.balance / circulatingSupply) * 100 : 0
     }));
 
     res.json({
-      holders: holdersWithStats,
-      totalHolders: Object.keys(balances).filter(addr => balances[addr] > 0).length,
+      holders: topHolders,
+      totalHolders,
       circulatingSupply,
-      topHoldersBalance: holders.reduce((sum, h) => sum + h.balance, 0)
+      topHoldersBalance: topHolders.reduce((sum, h) => sum + h.balance, 0)
     });
   } catch (error) {
     console.error('Error getting holders:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get rank for a specific address or balance
+app.get('/api/holders/rank', async (req, res) => {
+  try {
+    const { address, balance } = req.query;
+    
+    if (!address && !balance) {
+      return res.status(400).json({ error: 'Either address or balance parameter is required' });
+    }
+
+    const { allHolders, circulatingSupply, totalHolders } = await calculateHolders();
+
+    let result = {
+      circulatingSupply,
+      totalHolders
+    };
+
+    if (address) {
+      const rankIndex = allHolders.findIndex(h => h.address === address);
+      if (rankIndex !== -1) {
+        const holder = allHolders[rankIndex];
+        result = {
+          ...result,
+          address: holder.address,
+          balance: holder.balance,
+          rank: rankIndex + 1,
+          percentage: circulatingSupply > 0 ? (holder.balance / circulatingSupply) * 100 : 0,
+          txCount: holder.txCount
+        };
+      } else {
+        return res.status(404).json({ error: 'Address not found in holders list' });
+      }
+    } else if (balance) {
+      const searchBalance = parseFloat(balance);
+      if (isNaN(searchBalance)) {
+        return res.status(400).json({ error: 'Invalid balance value' });
+      }
+
+      // Find where this balance would land
+      // Since allHolders is sorted desc, find first index where holder.balance <= searchBalance
+      let rank = allHolders.findIndex(h => h.balance <= searchBalance);
+      
+      // If not found, it's lower than all existing holders
+      if (rank === -1) {
+        rank = allHolders.length + 1;
+      } else {
+        rank = rank + 1; // 1-based index
+      }
+
+      result = {
+        ...result,
+        searchBalance,
+        rank,
+        percentage: circulatingSupply > 0 ? (searchBalance / circulatingSupply) * 100 : 0
+      };
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error getting holder rank:', error);
     res.status(500).json({ error: error.message });
   }
 });
