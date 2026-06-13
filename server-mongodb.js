@@ -744,6 +744,11 @@ app.get('/api/address/:address/txs', async (req, res) => {
         enrichedTx.time = blockTime;
         enrichedTx.blocktime = blockTime;
       }
+      
+      // Calculate confirmations dynamically
+      if (currentHeight && tx.blockheight !== undefined) {
+        enrichedTx.confirmations = currentHeight - tx.blockheight + 1;
+      }
 
       // Calculate amounts for this specific address
       let receivedAmount = 0;
