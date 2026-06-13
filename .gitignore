@@ -3,8 +3,9 @@
 .env.local
 .env.production
 .claude/
-/docs/
-/debug/
+docs/
+debug/
+backups/
 
 # Dependencies
 node_modules/

@@ -314,7 +314,7 @@
               <tr>
                 <td><span class="param-name">limit</span></td>
                 <td>integer</td>
-                <td>Number of holders to return (optional, default: 100)</td>
+                <td>Number of holders to return (optional, default: 10)</td>
               </tr>
             </tbody>
           </table>
@@ -384,7 +384,7 @@
             <span class="endpoint-path">/api/blocks/recent/:count?</span>
           </div>
           <div class="endpoint-description">
-            Returns recent blocks. Optional count parameter (default: 20).
+            Returns recent blocks. Optional count parameter (default: 10).
           </div>
           <table class="param-table">
             <thead>
@@ -398,7 +398,7 @@
               <tr>
                 <td><span class="param-name">count</span></td>
                 <td>integer</td>
-                <td>Number of blocks to return (optional, default: 20)</td>
+                <td>Number of blocks to return (optional, default: 10)</td>
               </tr>
               <tr>
                 <td><span class="param-name">page</span></td>
@@ -504,10 +504,10 @@
         <div class="endpoint">
           <div class="endpoint-header">
             <span class="method">GET</span>
-            <span class="endpoint-path">/api/address/:address</span>
+            <span class="endpoint-path">/api/address/:address/txs</span>
           </div>
           <div class="endpoint-description">
-            Returns information about an address including balance, transaction count, and transaction history.
+            Returns information about an address including balance, transaction count, and a paginated list of transaction history.
           </div>
           <table class="param-table">
             <thead>
@@ -523,11 +523,21 @@
                 <td>string</td>
                 <td>S256 address (s2... bech32 or S... legacy format)</td>
               </tr>
+              <tr>
+                <td><span class="param-name">offset</span></td>
+                <td>integer</td>
+                <td>Pagination offset (query parameter, default: 0)</td>
+              </tr>
+              <tr>
+                <td><span class="param-name">limit</span></td>
+                <td>integer</td>
+                <td>Number of transactions to return (query parameter, default: 10)</td>
+              </tr>
             </tbody>
           </table>
           <div class="code-header">Example Request:</div>
           <div class="code-block">
-            <pre>curl <a href="https://explorer.sha256coin.eu/api/address/Sfu8VLiVd77sKuShL7aXU65egZr8MLCNrh" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/address/Sfu8VLiVd77sKuShL7aXU65egZr8MLCNrh</a></pre>
+            <pre>curl <a href="https://explorer.sha256coin.eu/api/address/Sfu8VLiVd77sKuShL7aXU65egZr8MLCNrh/txs?offset=0&limit=10" class="code-link" target="_blank">https://explorer.sha256coin.eu/api/address/Sfu8VLiVd77sKuShL7aXU65egZr8MLCNrh/txs?offset=0&limit=10</a></pre>
           </div>
           <div class="code-header">Example Response:</div>
           <div class="code-block">

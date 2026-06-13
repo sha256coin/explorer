@@ -573,9 +573,11 @@ app.get('/api/mempool', async (req, res) => {
 });
 
 // Get address info (balance and transactions)
-app.get('/api/address/:address', async (req, res) => {
+app.get('/api/address/:address/txs', async (req, res) => {
   try {
     const address = req.params.address;
+    const offset = parseInt(req.query.offset) || 0;
+    const limit = parseInt(req.query.limit) || 10;
 
     // Step 1: Find all transactions where address received coins (in outputs)
     const receivingTxs = await Transaction.find({
@@ -834,6 +836,8 @@ app.get('/api/address/:address', async (req, res) => {
       }
     });
 
+    const paginatedTransactions = enrichedTransactions.slice(offset, offset + limit);
+
     res.json({
       address,
       balance,
@@ -841,7 +845,7 @@ app.get('/api/address/:address', async (req, res) => {
       received,
       sent,
       txCount: transactions.length,
-      transactions: enrichedTransactions
+      transactions: paginatedTransactions
     });
   } catch (error) {
     console.error('Error getting address info:', error);

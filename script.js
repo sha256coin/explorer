@@ -838,7 +838,9 @@ async function showAddressDetails(address) {
   }
 
   try {
-    const response = await fetch(`${API_BASE}/api/address/${address}`);
+    const limit = 25;
+    window.itemsPerPage = limit;
+    const response = await fetch(`${API_BASE}/api/address/${address}/txs?offset=0&limit=${limit}`);
     const data = await response.json();
 
     if (data.error) {
@@ -940,13 +942,11 @@ async function showAddressDetails(address) {
       </div>
     `;
 
-    // Store data for filtering and pagination
     window.currentAddressData = data;
     window.currentPage = 1;
-    window.itemsPerPage = 25;
     window.currentFilter = 'all';
 
-    // Count incoming vs outgoing transactions using server-calculated data
+    // Count incoming vs outgoing transactions using server-calculated data (only for current page)
     let incomingCount = 0;
     let outgoingCount = 0;
     data.transactions.forEach(tx => {
@@ -1057,20 +1057,15 @@ function renderTransactionPage(address) {
 
   const page = window.currentPage || 1;
   const itemsPerPage = window.itemsPerPage || 25;
-  const filter = window.currentFilter || 'all';
 
-  // Get filtered transactions
-  let filteredTxs = data.transactions;
-  if (filter === 'recent') {
-    filteredTxs = data.transactions.slice(0, 100);
-  }
+  // Since we fetch paginated data from the server, we just use the transactions as is
+  const paginatedTxs = data.transactions;
 
-  // Calculate pagination
-  const totalItems = filteredTxs.length;
+  // Calculate pagination using the total txCount returned by the server
+  const totalItems = data.txCount;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (page - 1) * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
-  const paginatedTxs = filteredTxs.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + paginatedTxs.length, totalItems);
 
   // Update table
   const tbody = document.getElementById('tx-table-body');
@@ -1171,12 +1166,30 @@ function renderTxPagination(totalPages, currentPage, address) {
 }
 
 // Go to specific transaction page
-function goToTxPage(page, address) {
+async function goToTxPage(page, address) {
   window.currentPage = page;
-  renderTransactionPage(address);
+  
+  // Fetch the new page data from the server
+  const offset = (page - 1) * window.itemsPerPage;
+  try {
+    const response = await fetch(`${API_BASE}/api/address/${address}/txs?offset=${offset}&limit=${window.itemsPerPage}`);
+    const data = await response.json();
+    if (!data.error) {
+      window.currentAddressData.transactions = data.transactions;
+      renderTransactionPage(address);
+    } else {
+      showError(data.error);
+    }
+  } catch (e) {
+    console.error("Error fetching paginated transactions:", e);
+    showError("Error fetching transactions");
+  }
 
   // Scroll to top of transaction table
-  document.querySelector('.tx-table-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const tableContainer = document.querySelector('.tx-table-container');
+  if (tableContainer) {
+    tableContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 // Filter transactions
