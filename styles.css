@@ -648,6 +648,29 @@ tbody tr:last-child td {
   word-break: break-all;
 }
 
+.tx-io-message {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  background: rgba(163, 0, 255, 0.08);
+  border-left: 3px solid var(--primary);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+.tx-io-message-label {
+  color: var(--text-light);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-right: 0.4rem;
+}
+
+.tx-io-message-text {
+  color: var(--primary);
+  font-weight: 600;
+}
+
 /* Pagination - Default (Transaction History) */
 .pagination {
   display: flex;

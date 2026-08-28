@@ -69,14 +69,13 @@ async function loadCoinSupply() {
     `;
 
     // Fetch the COIN_SUPPLY.txt file
-    const response = await fetch('/COIN_SUPPLY.txt');
+    const response = await fetch("/COIN_SUPPLY.txt");
     const text = await response.text();
 
     // Clear content and display with typewriter effect
     setTimeout(() => {
       displayTerminalContent(text);
     }, 1000);
-
   } catch (error) {
     content.innerHTML = `
       <div class="terminal-line">ERROR: Unable to access COIN_SUPPLY.txt</div>
@@ -88,7 +87,7 @@ async function loadCoinSupply() {
 
 function displayTerminalContent(text) {
   const content = document.getElementById("terminal-content");
-  const lines = text.split('\n');
+  const lines = text.split("\n");
 
   content.innerHTML = `
     <div class="terminal-line">Connection established...</div>
@@ -101,10 +100,10 @@ function displayTerminalContent(text) {
   // Add lines with staggered fade-in effect
   lines.forEach((line, index) => {
     setTimeout(() => {
-      const lineDiv = document.createElement('div');
-      lineDiv.className = 'terminal-line';
+      const lineDiv = document.createElement("div");
+      lineDiv.className = "terminal-line";
       lineDiv.textContent = line;
-      lineDiv.style.animationDelay = '0s';
+      lineDiv.style.animationDelay = "0s";
       content.appendChild(lineDiv);
 
       // Auto-scroll to bottom
@@ -113,13 +112,16 @@ function displayTerminalContent(text) {
   });
 
   // Add cursor at the end
-  setTimeout(() => {
-    const cursorDiv = document.createElement('div');
-    cursorDiv.className = 'terminal-line';
-    cursorDiv.innerHTML = '<br><span class="terminal-cursor"></span>';
-    content.appendChild(cursorDiv);
-    content.scrollTop = content.scrollHeight;
-  }, lines.length * 20 + 100);
+  setTimeout(
+    () => {
+      const cursorDiv = document.createElement("div");
+      cursorDiv.className = "terminal-line";
+      cursorDiv.innerHTML = '<br><span class="terminal-cursor"></span>';
+      content.appendChild(cursorDiv);
+      content.scrollTop = content.scrollHeight;
+    },
+    lines.length * 20 + 100,
+  );
 }
 
 // Initialize
@@ -135,7 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Close mobile menu when clicking a link
   const navLinks = document.querySelectorAll(".nav-link");
-  navLinks.forEach(link => {
+  navLinks.forEach((link) => {
     link.addEventListener("click", () => {
       const navMenu = document.getElementById("nav-menu");
       const navControls = document.getElementById("nav-controls");
@@ -179,11 +181,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Check for search query parameter
   const urlParams = new URLSearchParams(window.location.search);
-  const searchQuery = urlParams.get('search');
+  const searchQuery = urlParams.get("search");
 
   if (searchQuery) {
     // Perform search from URL parameter
-    document.getElementById('search').value = searchQuery;
+    document.getElementById("search").value = searchQuery;
     performSearch();
   } else if (blockMatch) {
     // URL is /block/:hash or /block/:height
@@ -232,11 +234,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Page jump input - Enter key support
-  document.getElementById("page-jump-input").addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      jumpToPage();
-    }
-  });
+  document
+    .getElementById("page-jump-input")
+    .addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        jumpToPage();
+      }
+    });
 });
 
 // Load blockchain info
@@ -251,10 +255,10 @@ async function loadBlockchainInfo() {
     document.getElementById("blockHeight").textContent =
       data.blocks.toLocaleString();
     document.getElementById("difficulty").textContent = formatDifficulty(
-      data.difficulty
+      data.difficulty,
     );
     document.getElementById("hashrate").textContent = formatHashrate(
-      data.networkhashps
+      data.networkhashps,
     );
     document.getElementById("connections").textContent = data.connections;
   } catch (error) {
@@ -275,7 +279,7 @@ async function loadRecentBlocks(page = 1) {
     isLoadingBlocks = true;
     currentPage = page;
     const response = await fetch(
-      `${API_BASE}/api/blocks/recent/${blocksPerPage}?page=${page}`
+      `${API_BASE}/api/blocks/recent/${blocksPerPage}?page=${page}`,
     );
     const blocks = await response.json();
 
@@ -295,8 +299,8 @@ async function loadRecentBlocks(page = 1) {
       row.innerHTML = `
         <td><strong>${block.height}</strong></td>
         <td><span class="hash" title="${block.hash}">${truncateHash(
-        block.hash
-      )}</span></td>
+          block.hash,
+        )}</span></td>
         <td>${formatTime(block.time)}</td>
         <td>${block.nTx}</td>
         <td>${formatBytes(block.size)}</td>
@@ -311,12 +315,14 @@ async function loadRecentBlocks(page = 1) {
       const pageInfoText = `Page ${currentPage} of ${maxPage} (Blocks ${highestBlock} - ${lowestBlock})`;
 
       // Update both locations
-      const pageInfo = document.getElementById('blocks-page-info');
+      const pageInfo = document.getElementById("blocks-page-info");
       if (pageInfo) {
         pageInfo.textContent = pageInfoText;
       }
 
-      const pageInfoPagination = document.getElementById('blocks-page-info-pagination');
+      const pageInfoPagination = document.getElementById(
+        "blocks-page-info-pagination",
+      );
       if (pageInfoPagination) {
         pageInfoPagination.textContent = pageInfoText;
       }
@@ -384,7 +390,7 @@ function renderPagination() {
 
   // Add ellipsis after page 1 if needed
   if (rangeStart > 2) {
-    pages.push('...');
+    pages.push("...");
   }
 
   // Add pages around current page
@@ -394,7 +400,7 @@ function renderPagination() {
 
   // Add ellipsis before last page if needed
   if (rangeEnd < maxPage - 1) {
-    pages.push('...');
+    pages.push("...");
   }
 
   // Always show last page (if more than 1 page)
@@ -403,13 +409,15 @@ function renderPagination() {
   }
 
   // Build HTML
-  pageNumbersDiv.innerHTML = pages.map(page => {
-    if (page === '...') {
-      return '<span class="page-ellipsis">...</span>';
-    }
-    const isActive = page === currentPage;
-    return `<button class="btn-page-num${isActive ? ' active' : ''}" onclick="goToPage(${page})">${page}</button>`;
-  }).join('');
+  pageNumbersDiv.innerHTML = pages
+    .map((page) => {
+      if (page === "...") {
+        return '<span class="page-ellipsis">...</span>';
+      }
+      const isActive = page === currentPage;
+      return `<button class="btn-page-num${isActive ? " active" : ""}" onclick="goToPage(${page})">${page}</button>`;
+    })
+    .join("");
 
   // Update button states
   const prevBtn = document.getElementById("prev-page");
@@ -437,7 +445,7 @@ async function showBlockDetails(hashOrHeight) {
     // Update URL to /block/:hash for bookmarking/sharing
     const newPath = `/block/${block.hash}`;
     if (window.location.pathname !== newPath) {
-      window.history.pushState({ blockHash: block.hash }, '', newPath);
+      window.history.pushState({ blockHash: block.hash }, "", newPath);
     }
 
     // Get coinbase message from first transaction
@@ -470,7 +478,7 @@ async function showBlockDetails(hashOrHeight) {
           ? `
       <div class="detail-row">
         <div class="detail-label">CoinbaseMsg:</div>
-        <div class="detail-value" style="color: var(--primary); font-weight: 600; font-size: 1.1rem;">"${coinbaseMessage}"</div>
+        <div class="detail-value" style="color: var(--primary); font-weight: 600; font-size: 1.1rem;">"${escapeHtml(coinbaseMessage)}"</div>
       </div>
       `
           : ""
@@ -547,7 +555,7 @@ async function showBlockDetails(hashOrHeight) {
               }')">
                 ${index + 1}. ${truncateHash(tx.txid || tx)}
               </div>
-            `
+            `,
               )
               .join("")}
           </div>
@@ -581,7 +589,7 @@ async function showTransactionDetails(txid) {
     // Update URL to /tx/:txid for bookmarking/sharing
     const newPath = `/tx/${tx.txid}`;
     if (window.location.pathname !== newPath) {
-      window.history.pushState({ txid: tx.txid }, '', newPath);
+      window.history.pushState({ txid: tx.txid }, "", newPath);
     }
 
     const content = document.getElementById("tx-content");
@@ -598,12 +606,16 @@ async function showTransactionDetails(txid) {
       </div>
       <div class="detail-row">
         <div class="detail-label">Block Height:</div>
-        <div class="detail-value">${tx.blockheight || 'Pending'}</div>
+        <div class="detail-value">${tx.blockheight || "Pending"}</div>
       </div>
       <div class="detail-row">
         <div class="detail-label">Confirmations:</div>
         <div class="detail-value">${
-          tx.isOrphan ? '<span class="status-orphan">ORPHANED</span>' : (tx.confirmations ? tx.confirmations.toLocaleString() : "Unconfirmed")
+          tx.isOrphan
+            ? '<span class="status-orphan">ORPHANED</span>'
+            : tx.confirmations
+              ? tx.confirmations.toLocaleString()
+              : "Unconfirmed"
         }</div>
       </div>
       <div class="detail-row">
@@ -626,34 +638,44 @@ async function showTransactionDetails(txid) {
         <div class="detail-label">Version:</div>
         <div class="detail-value">${tx.version}</div>
       </div>
-      ${tx.locktime && tx.locktime !== 0 ? `
+      ${
+        tx.locktime && tx.locktime !== 0
+          ? `
       <div class="detail-row">
         <div class="detail-label">Lock Time:</div>
         <div class="detail-value">${tx.locktime}</div>
       </div>
-      ` : ''}
+      `
+          : ""
+      }
       <div class="detail-row">
         <div class="detail-label">Inputs (${tx.vin.length}):</div>
         <div class="detail-value">
           ${tx.vin
             .map((input, index) => {
               if (input.coinbase) {
+                const coinbaseMsg = decodeCoinbase(input.coinbase);
                 return `<div class="tx-io-box tx-input-box">
                 <div class="tx-io-header">💰 <strong>Input ${index}: Coinbase (Mining Reward)</strong></div>
+                ${coinbaseMsg ? `<div class="tx-io-message"><span class="tx-io-message-label">Message:</span><span class="tx-io-message-text">"${escapeHtml(coinbaseMsg)}"</span></div>` : ""}
                 <div class="tx-io-detail">${truncateHash(input.coinbase, 32)}</div>
               </div>`;
               }
 
               // Build input display with available data
-              const hasValue = input.prevout && input.prevout.value !== undefined;
-              const hasAddress = input.prevout && input.prevout.scriptPubKey && input.prevout.scriptPubKey.address;
+              const hasValue =
+                input.prevout && input.prevout.value !== undefined;
+              const hasAddress =
+                input.prevout &&
+                input.prevout.scriptPubKey &&
+                input.prevout.scriptPubKey.address;
 
               return `<div class="tx-io-box tx-input-box">
               <div class="tx-io-header">📥 <strong>Input ${index}</strong></div>
-              ${hasAddress ? `<div class="tx-io-address"><strong>From Address:</strong> ${input.prevout.scriptPubKey.address}</div>` : ''}
-              ${hasValue ? `<div class="tx-io-amount"><strong>Amount:</strong> <span class="amount-highlight">${input.prevout.value.toFixed(8)} S256</span></div>` : ''}
+              ${hasAddress ? `<div class="tx-io-address"><strong>From Address:</strong> ${input.prevout.scriptPubKey.address}</div>` : ""}
+              ${hasValue ? `<div class="tx-io-amount"><strong>Amount:</strong> <span class="amount-highlight">${input.prevout.value.toFixed(8)} S256</span></div>` : ""}
               <div class="tx-io-reference">
-                <strong>Source:</strong> <span class="detail-value clickable" onclick="showTransactionModal('${input.txid}')">${truncateHash(input.txid)}</span> [Output #${input.vout !== undefined ? input.vout : 'N/A'}]
+                <strong>Source:</strong> <span class="detail-value clickable" onclick="showTransactionModal('${input.txid}')">${truncateHash(input.txid)}</span> [Output #${input.vout !== undefined ? input.vout : "N/A"}]
               </div>
             </div>`;
             })
@@ -664,8 +686,12 @@ async function showTransactionDetails(txid) {
         <div class="detail-label">Outputs (${tx.vout.length}):</div>
         <div class="detail-value">
           ${tx.vout
-            .map(
-              (output, index) => `
+            .map((output, index) => {
+              const opReturn =
+                output.scriptPubKey.type === "nulldata"
+                  ? decodeOpReturn(output.scriptPubKey.asm)
+                  : null;
+              return `
             <div class="tx-io-box tx-output-box">
               <div class="tx-io-header">📤 <strong>Output ${index}</strong></div>
               <div class="tx-io-amount"><strong>Amount:</strong> <span class="amount-highlight">${output.value.toFixed(8)} S256</span></div>
@@ -674,10 +700,20 @@ async function showTransactionDetails(txid) {
                   ? `<div class="tx-io-address"><strong>To Address:</strong> ${output.scriptPubKey.address}</div>`
                   : `<div class="tx-io-detail"><strong>Type:</strong> ${output.scriptPubKey.type}</div>`
               }
-              ${output.scriptPubKey.type === 'nonstandard' ? '<div class="badge-nonstandard">⚠️ Non-Standard / Unspendable</div>' : ''}
+              ${
+                opReturn && opReturn.kind === "segwit"
+                  ? '<div class="tx-io-detail">SegWit witness commitment (BIP141)</div>'
+                  : ""
+              }
+              ${
+                opReturn && opReturn.kind === "text"
+                  ? `<div class="tx-io-message"><span class="tx-io-message-label">Message:</span><span class="tx-io-message-text">"${escapeHtml(opReturn.text)}"</span></div>`
+                  : ""
+              }
+              ${output.scriptPubKey.type === "nonstandard" ? '<div class="badge-nonstandard">⚠️ Non-Standard / Unspendable</div>' : ""}
             </div>
-          `
-            )
+          `;
+            })
             .join("")}
         </div>
       </div>
@@ -721,12 +757,16 @@ async function showTransactionModal(txid) {
       </div>
       <div class="detail-row">
         <div class="detail-label">Block Height:</div>
-        <div class="detail-value">${tx.blockheight || 'Pending'}</div>
+        <div class="detail-value">${tx.blockheight || "Pending"}</div>
       </div>
       <div class="detail-row">
         <div class="detail-label">Confirmations:</div>
         <div class="detail-value">${
-          tx.isOrphan ? '<span class="status-orphan">ORPHANED</span>' : (tx.confirmations ? tx.confirmations.toLocaleString() : "Unconfirmed")
+          tx.isOrphan
+            ? '<span class="status-orphan">ORPHANED</span>'
+            : tx.confirmations
+              ? tx.confirmations.toLocaleString()
+              : "Unconfirmed"
         }</div>
       </div>
       <div class="detail-row">
@@ -749,34 +789,44 @@ async function showTransactionModal(txid) {
         <div class="detail-label">Version:</div>
         <div class="detail-value">${tx.version}</div>
       </div>
-      ${tx.locktime && tx.locktime !== 0 ? `
+      ${
+        tx.locktime && tx.locktime !== 0
+          ? `
       <div class="detail-row">
         <div class="detail-label">Lock Time:</div>
         <div class="detail-value">${tx.locktime}</div>
       </div>
-      ` : ''}
+      `
+          : ""
+      }
       <div class="detail-row">
         <div class="detail-label">Inputs (${tx.vin.length}):</div>
         <div class="detail-value">
           ${tx.vin
             .map((input, index) => {
               if (input.coinbase) {
+                const coinbaseMsg = decodeCoinbase(input.coinbase);
                 return `<div class="tx-io-box tx-input-box">
                 <div class="tx-io-header">💰 <strong>Input ${index}: Coinbase (Mining Reward)</strong></div>
+                ${coinbaseMsg ? `<div class="tx-io-message"><span class="tx-io-message-label">Message:</span><span class="tx-io-message-text">"${escapeHtml(coinbaseMsg)}"</span></div>` : ""}
                 <div class="tx-io-detail">${truncateHash(input.coinbase, 32)}</div>
               </div>`;
               }
 
               // Build input display with available data
-              const hasValue = input.prevout && input.prevout.value !== undefined;
-              const hasAddress = input.prevout && input.prevout.scriptPubKey && input.prevout.scriptPubKey.address;
+              const hasValue =
+                input.prevout && input.prevout.value !== undefined;
+              const hasAddress =
+                input.prevout &&
+                input.prevout.scriptPubKey &&
+                input.prevout.scriptPubKey.address;
 
               return `<div class="tx-io-box tx-input-box">
               <div class="tx-io-header">📥 <strong>Input ${index}</strong></div>
-              ${hasAddress ? `<div class="tx-io-address"><strong>From Address:</strong> ${input.prevout.scriptPubKey.address}</div>` : ''}
-              ${hasValue ? `<div class="tx-io-amount"><strong>Amount:</strong> <span class="amount-highlight">${input.prevout.value.toFixed(8)} S256</span></div>` : ''}
+              ${hasAddress ? `<div class="tx-io-address"><strong>From Address:</strong> ${input.prevout.scriptPubKey.address}</div>` : ""}
+              ${hasValue ? `<div class="tx-io-amount"><strong>Amount:</strong> <span class="amount-highlight">${input.prevout.value.toFixed(8)} S256</span></div>` : ""}
               <div class="tx-io-reference">
-                <strong>Source:</strong> <span class="detail-value clickable" onclick="closeTxModal(); showTransactionDetails('${input.txid}')">${truncateHash(input.txid)}</span> [Output #${input.vout !== undefined ? input.vout : 'N/A'}]
+                <strong>Source:</strong> <span class="detail-value clickable" onclick="closeTxModal(); showTransactionDetails('${input.txid}')">${truncateHash(input.txid)}</span> [Output #${input.vout !== undefined ? input.vout : "N/A"}]
               </div>
             </div>`;
             })
@@ -787,8 +837,12 @@ async function showTransactionModal(txid) {
         <div class="detail-label">Outputs (${tx.vout.length}):</div>
         <div class="detail-value">
           ${tx.vout
-            .map(
-              (output, index) => `
+            .map((output, index) => {
+              const opReturn =
+                output.scriptPubKey.type === "nulldata"
+                  ? decodeOpReturn(output.scriptPubKey.asm)
+                  : null;
+              return `
             <div class="tx-io-box tx-output-box">
               <div class="tx-io-header">📤 <strong>Output ${index}</strong></div>
               <div class="tx-io-amount"><strong>Amount:</strong> <span class="amount-highlight">${output.value.toFixed(8)} S256</span></div>
@@ -797,20 +851,30 @@ async function showTransactionModal(txid) {
                   ? `<div class="tx-io-address"><strong>To Address:</strong> ${output.scriptPubKey.address}</div>`
                   : `<div class="tx-io-detail"><strong>Type:</strong> ${output.scriptPubKey.type}</div>`
               }
-              ${output.scriptPubKey.type === 'nonstandard' ? '<div class="badge-nonstandard">⚠️ Non-Standard / Unspendable</div>' : ''}
+              ${
+                opReturn && opReturn.kind === "segwit"
+                  ? '<div class="tx-io-detail">SegWit witness commitment (BIP141)</div>'
+                  : ""
+              }
+              ${
+                opReturn && opReturn.kind === "text"
+                  ? `<div class="tx-io-message"><span class="tx-io-message-label">Message:</span><span class="tx-io-message-text">"${escapeHtml(opReturn.text)}"</span></div>`
+                  : ""
+              }
+              ${output.scriptPubKey.type === "nonstandard" ? '<div class="badge-nonstandard">⚠️ Non-Standard / Unspendable</div>' : ""}
             </div>
-          `
-            )
+          `;
+            })
             .join("")}
         </div>
       </div>
     `;
 
     // Show modal
-    const modal = document.getElementById('tx-modal');
-    modal.style.display = 'flex';
+    const modal = document.getElementById("tx-modal");
+    modal.style.display = "flex";
     setTimeout(() => {
-      modal.classList.add('show');
+      modal.classList.add("show");
     }, 10);
   } catch (error) {
     console.error("Error loading transaction details:", error);
@@ -820,10 +884,10 @@ async function showTransactionModal(txid) {
 
 // Close transaction modal
 function closeTxModal() {
-  const modal = document.getElementById('tx-modal');
-  modal.classList.remove('show');
+  const modal = document.getElementById("tx-modal");
+  modal.classList.remove("show");
   setTimeout(() => {
-    modal.style.display = 'none';
+    modal.style.display = "none";
   }, 300);
 }
 
@@ -832,7 +896,7 @@ async function showAddressDetails(address) {
   // Validate address format before querying
   if (!validateAddress(address)) {
     showError(
-      "Invalid S256 address format. Valid formats: s2... (bech32) or S... (legacy)"
+      "Invalid S256 address format. Valid formats: s2... (bech32) or S... (legacy)",
     );
     return;
   }
@@ -840,7 +904,9 @@ async function showAddressDetails(address) {
   try {
     const limit = 25;
     window.itemsPerPage = limit;
-    const response = await fetch(`${API_BASE}/api/address/${address}/txs?offset=0&limit=${limit}`);
+    const response = await fetch(
+      `${API_BASE}/api/address/${address}/txs?offset=0&limit=${limit}`,
+    );
     const data = await response.json();
 
     if (data.error) {
@@ -851,7 +917,7 @@ async function showAddressDetails(address) {
     // Update URL to /address/:address for bookmarking/sharing
     const newPath = `/address/${data.address}`;
     if (window.location.pathname !== newPath) {
-      window.history.pushState({ address: data.address }, '', newPath);
+      window.history.pushState({ address: data.address }, "", newPath);
     }
 
     const content = document.getElementById("address-content");
@@ -893,12 +959,16 @@ async function showAddressDetails(address) {
           <div class="stat-label">Spendable Balance</div>
           <div class="stat-value stat-balance">${data.balance.toFixed(8)} S256</div>
         </div>
-        ${data.immatureBalance > 0 ? `
+        ${
+          data.immatureBalance > 0
+            ? `
         <div class="stat-card highlight">
           <div class="stat-label">Immature Balance</div>
           <div class="stat-value immature-balance">${data.immatureBalance.toFixed(8)} S256</div>
         </div>
-        ` : ''}
+        `
+            : ""
+        }
         <div class="stat-card highlight total">
           <div class="stat-label">Total Balance</div>
           <div class="stat-value">${(data.balance + (data.immatureBalance || 0)).toFixed(8)} S256</div>
@@ -944,20 +1014,20 @@ async function showAddressDetails(address) {
 
     window.currentAddressData = data;
     window.currentPage = 1;
-    window.currentFilter = 'all';
+    window.currentFilter = "all";
 
     // Count incoming vs outgoing transactions using server-calculated data (only for current page)
     let incomingCount = 0;
     let outgoingCount = 0;
-    data.transactions.forEach(tx => {
-      if (tx.addressAmount?.direction === 'out') {
+    data.transactions.forEach((tx) => {
+      if (tx.addressAmount?.direction === "out") {
         outgoingCount++;
       } else {
         incomingCount++;
       }
     });
 
-    console.log(`✅ Address loaded: ${incomingCount} IN (green), ${outgoingCount} OUT (red) transactions`);
+    //console.log(`✅ Address loaded: ${incomingCount} IN (green), ${outgoingCount} OUT (red) transactions`);
 
     // Render initial page
     renderTransactionPage(data.address);
@@ -979,19 +1049,22 @@ async function showAddressDetails(address) {
 
 // Copy address to clipboard
 function copyAddress(address) {
-  navigator.clipboard.writeText(address).then(() => {
-    showNotification('Address copied to clipboard!');
-  }).catch(err => {
-    console.error('Failed to copy:', err);
-    showNotification('Failed to copy address');
-  });
+  navigator.clipboard
+    .writeText(address)
+    .then(() => {
+      showNotification("Address copied to clipboard!");
+    })
+    .catch((err) => {
+      console.error("Failed to copy:", err);
+      showNotification("Failed to copy address");
+    });
 }
 
 // Show QR code modal
 function showQRModal(address) {
-  const modal = document.getElementById('qr-modal');
-  const qrImage = document.getElementById('qr-code-image');
-  const addressText = document.getElementById('qr-address-text');
+  const modal = document.getElementById("qr-modal");
+  const qrImage = document.getElementById("qr-code-image");
+  const addressText = document.getElementById("qr-address-text");
 
   // Generate QR code URL with larger size for better display
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(address)}`;
@@ -1003,31 +1076,31 @@ function showQRModal(address) {
   modal.dataset.address = address;
 
   // Show modal with animation
-  modal.style.display = 'flex';
+  modal.style.display = "flex";
   setTimeout(() => {
-    modal.classList.add('show');
+    modal.classList.add("show");
   }, 10);
 }
 
 // Close QR code modal
 function closeQRModal() {
-  const modal = document.getElementById('qr-modal');
-  modal.classList.remove('show');
+  const modal = document.getElementById("qr-modal");
+  modal.classList.remove("show");
   setTimeout(() => {
-    modal.style.display = 'none';
+    modal.style.display = "none";
   }, 300);
 }
 
 // Copy address from modal
 function copyAddressFromModal() {
-  const modal = document.getElementById('qr-modal');
+  const modal = document.getElementById("qr-modal");
   const address = modal.dataset.address;
   copyAddress(address);
 }
 
 // Download QR code from modal
 function downloadQRFromModal() {
-  const modal = document.getElementById('qr-modal');
+  const modal = document.getElementById("qr-modal");
   const address = modal.dataset.address;
 
   try {
@@ -1035,18 +1108,18 @@ function downloadQRFromModal() {
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=800x800&data=${encodeURIComponent(address)}`;
 
     // Create a temporary link and trigger download
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = qrUrl;
     a.download = `s256-address-${address.substring(0, 10)}.png`;
-    a.target = '_blank';
+    a.target = "_blank";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
 
-    showNotification('QR code download started!');
+    showNotification("QR code download started!");
   } catch (error) {
-    console.error('Failed to download QR code:', error);
-    showNotification('Failed to download QR code');
+    console.error("Failed to download QR code:", error);
+    showNotification("Failed to download QR code");
   }
 }
 
@@ -1068,25 +1141,27 @@ function renderTransactionPage(address) {
   const endIndex = Math.min(startIndex + paginatedTxs.length, totalItems);
 
   // Update table
-  const tbody = document.getElementById('tx-table-body');
+  const tbody = document.getElementById("tx-table-body");
   tbody.innerHTML = paginatedTxs
-    .map(
-      (tx) => {
-        // Use server-calculated amounts
-        const direction = tx.addressAmount?.direction || 'in';
-        const netAmount = tx.addressAmount?.net || 0;
+    .map((tx) => {
+      // Use server-calculated amounts
+      const direction = tx.addressAmount?.direction || "in";
+      const netAmount = tx.addressAmount?.net || 0;
 
-        const amountClass = direction === 'in' ? 'amount-positive' : 'amount-negative';
-        const amountDisplay = direction === 'in' ? `+${netAmount.toFixed(8)}` : netAmount.toFixed(8);
-        const directionBadge = direction === 'in'
+      const amountClass =
+        direction === "in" ? "amount-positive" : "amount-negative";
+      const amountDisplay =
+        direction === "in" ? `+${netAmount.toFixed(8)}` : netAmount.toFixed(8);
+      const directionBadge =
+        direction === "in"
           ? '<span class="tx-badge tx-badge-in">IN</span>'
           : '<span class="tx-badge tx-badge-out">OUT</span>';
 
-        return `
+      return `
           <tr onclick="showTransactionModal('${tx.txid}')">
             <td class="tx-hash-col">${truncateHash(tx.txid)}</td>
-            <td>${tx.blockheight || 'Pending'}</td>
-            <td>${(tx.time || tx.blocktime) ? formatTime(tx.time || tx.blocktime) : 'Pending'}</td>
+            <td>${tx.blockheight || "Pending"}</td>
+            <td>${tx.time || tx.blocktime ? formatTime(tx.time || tx.blocktime) : "Pending"}</td>
             <td class="amount-col">
               <div class="amount-cell">
                 ${directionBadge}
@@ -1095,12 +1170,11 @@ function renderTransactionPage(address) {
             </td>
           </tr>
         `;
-      }
-    )
+    })
     .join("");
 
   // Update info text
-  document.getElementById('tx-history-info').textContent =
+  document.getElementById("tx-history-info").textContent =
     `Showing ${startIndex + 1} to ${endIndex} of ${totalItems} transactions`;
 
   // Render pagination controls
@@ -1109,11 +1183,11 @@ function renderTransactionPage(address) {
 
 // Render pagination controls for transactions
 function renderTxPagination(totalPages, currentPage, address) {
-  const container = document.getElementById('pagination-container');
+  const container = document.getElementById("pagination-container");
   if (!container) return;
 
   if (totalPages <= 1) {
-    container.innerHTML = '';
+    container.innerHTML = "";
     return;
   }
 
@@ -1143,7 +1217,7 @@ function renderTxPagination(totalPages, currentPage, address) {
   }
 
   for (let i = startPage; i <= endPage; i++) {
-    const activeClass = i === currentPage ? 'active' : '';
+    const activeClass = i === currentPage ? "active" : "";
     paginationHTML += `<button class="page-btn ${activeClass}" onclick="goToTxPage(${i}, '${address}')">${i}</button>`;
   }
 
@@ -1161,18 +1235,20 @@ function renderTxPagination(totalPages, currentPage, address) {
     paginationHTML += `<button class="page-btn disabled" disabled>Next</button>`;
   }
 
-  paginationHTML += '</div>';
+  paginationHTML += "</div>";
   container.innerHTML = paginationHTML;
 }
 
 // Go to specific transaction page
 async function goToTxPage(page, address) {
   window.currentPage = page;
-  
+
   // Fetch the new page data from the server
   const offset = (page - 1) * window.itemsPerPage;
   try {
-    const response = await fetch(`${API_BASE}/api/address/${address}/txs?offset=${offset}&limit=${window.itemsPerPage}`);
+    const response = await fetch(
+      `${API_BASE}/api/address/${address}/txs?offset=${offset}&limit=${window.itemsPerPage}`,
+    );
     const data = await response.json();
     if (!data.error) {
       window.currentAddressData.transactions = data.transactions;
@@ -1186,19 +1262,19 @@ async function goToTxPage(page, address) {
   }
 
   // Scroll to top of transaction table
-  const tableContainer = document.querySelector('.tx-table-container');
+  const tableContainer = document.querySelector(".tx-table-container");
   if (tableContainer) {
-    tableContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    tableContainer.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
 
 // Filter transactions
 function filterTransactions(filter, address) {
   // Update button states
-  document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.classList.remove('active');
+  document.querySelectorAll(".filter-btn").forEach((btn) => {
+    btn.classList.remove("active");
   });
-  event.target.classList.add('active');
+  event.target.classList.add("active");
 
   // Update filter and reset to page 1
   window.currentFilter = filter;
@@ -1210,17 +1286,17 @@ function filterTransactions(filter, address) {
 
 // Show notification
 function showNotification(message) {
-  const notification = document.createElement('div');
-  notification.className = 'notification';
+  const notification = document.createElement("div");
+  notification.className = "notification";
   notification.textContent = message;
   document.body.appendChild(notification);
 
   setTimeout(() => {
-    notification.classList.add('show');
+    notification.classList.add("show");
   }, 10);
 
   setTimeout(() => {
-    notification.classList.remove('show');
+    notification.classList.remove("show");
     setTimeout(() => {
       document.body.removeChild(notification);
     }, 300);
@@ -1250,7 +1326,7 @@ async function performSearch() {
   if (query.startsWith("s2") || query.startsWith("S")) {
     if (!validateAddress(query)) {
       showError(
-        "Invalid S256 address format. Valid formats: s2... (bech32) or S... (legacy)"
+        "Invalid S256 address format. Valid formats: s2... (bech32) or S... (legacy)",
       );
       return;
     }
@@ -1258,7 +1334,7 @@ async function performSearch() {
 
   try {
     const response = await fetch(
-      `${API_BASE}/api/search/${encodeURIComponent(query)}`
+      `${API_BASE}/api/search/${encodeURIComponent(query)}`,
     );
     const result = await response.json();
 
@@ -1285,7 +1361,7 @@ function closeDetails() {
   console.log("Closing details...");
 
   // Clear URL path to prevent reloading detail view on refresh
-  window.history.pushState({}, '', '/');
+  window.history.pushState({}, "", "/");
 
   document.getElementById("block-details").style.display = "none";
   document.getElementById("tx-details").style.display = "none";
@@ -1319,11 +1395,23 @@ function showError(message) {
 }
 
 // Utility functions
+// Escapes text before inserting into innerHTML. Required for anything
+// derived from coinbase scriptSig or OP_RETURN data: both are arbitrary
+// printable-ASCII bytes fully controlled by whoever mined the block, so an
+// unescaped miner-chosen message is a stored-XSS vector against every
+// visitor who views that block/transaction.
+function escapeHtml(text) {
+  if (text === null || text === undefined) return "";
+  const div = document.createElement("div");
+  div.textContent = String(text);
+  return div.innerHTML;
+}
+
 function truncateHash(hash, length = 16) {
   if (!hash) return "N/A";
   if (hash.length <= length * 2) return hash;
   return `${hash.substring(0, length)}...${hash.substring(
-    hash.length - length
+    hash.length - length,
   )}`;
 }
 
@@ -1336,11 +1424,11 @@ function formatTime(timestamp) {
 
   // Format as YYYY-MM-DD HH:MM:SS
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
 
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
@@ -1359,8 +1447,10 @@ function formatHashrate(hashrate) {
   if (hashrate < 1000) return `${hashrate.toFixed(2)} H/s`;
   if (hashrate < 1000000) return `${(hashrate / 1000).toFixed(2)} KH/s`;
   if (hashrate < 1000000000) return `${(hashrate / 1000000).toFixed(2)} MH/s`;
-  if (hashrate < 1000000000000) return `${(hashrate / 1000000000).toFixed(2)} GH/s`;
-  if (hashrate < 1000000000000000) return `${(hashrate / 1000000000000).toFixed(2)} TH/s`;
+  if (hashrate < 1000000000000)
+    return `${(hashrate / 1000000000).toFixed(2)} GH/s`;
+  if (hashrate < 1000000000000000)
+    return `${(hashrate / 1000000000000).toFixed(2)} TH/s`;
   return `${(hashrate / 1000000000000000).toFixed(2)} PH/s`;
 }
 
@@ -1396,8 +1486,10 @@ function decodeCoinbase(hexString) {
         // Non-printable byte, check if we have a good string
         if (currentString.length >= 8) {
           // Prefer strings that look like messages (contain / or alphanumeric)
-          if (currentString.length > bestString.length ||
-              (currentString.includes('/') && !bestString.includes('/'))) {
+          if (
+            currentString.length > bestString.length ||
+            (currentString.includes("/") && !bestString.includes("/"))
+          ) {
             bestString = currentString;
           }
         }
@@ -1407,8 +1499,10 @@ function decodeCoinbase(hexString) {
 
     // Check the last string
     if (currentString.length >= 8) {
-      if (currentString.length > bestString.length ||
-          (currentString.includes('/') && !bestString.includes('/'))) {
+      if (
+        currentString.length > bestString.length ||
+        (currentString.includes("/") && !bestString.includes("/"))
+      ) {
         bestString = currentString;
       }
     }
@@ -1419,10 +1513,37 @@ function decodeCoinbase(hexString) {
   }
 }
 
+// Decode an OP_RETURN output's data, distinguishing the standard SegWit
+// witness commitment (BIP141, present in every segwit block's coinbase and
+// not a text message) from an actual custom message like the pool's
+// txMessageText field.
+function decodeOpReturn(asm) {
+  if (!asm || !asm.startsWith("OP_RETURN")) return null;
+  const hexData = asm.replace("OP_RETURN", "").trim();
+  if (!hexData) return null;
+
+  // BIP141 witness commitment marker: 0xaa21a9ed
+  if (hexData.toLowerCase().startsWith("aa21a9ed")) {
+    return { kind: "segwit" };
+  }
+
+  let text = "";
+  for (let i = 0; i < hexData.length; i += 2) {
+    const byte = parseInt(hexData.substr(i, 2), 16);
+    if (byte >= 32 && byte <= 126) {
+      text += String.fromCharCode(byte);
+    } else {
+      // Non-printable byte present: not a text message, show as raw hex.
+      return { kind: "hex", hex: hexData };
+    }
+  }
+  return { kind: "text", text };
+}
+
 // Export transaction history to CSV
 function exportToCSV(address) {
   if (!window.currentAddressData || !window.currentAddressData.transactions) {
-    showNotification('No transaction data available to export', 'error');
+    showNotification("No transaction data available to export", "error");
     return;
   }
 
@@ -1430,18 +1551,19 @@ function exportToCSV(address) {
   const transactions = data.transactions;
 
   // CSV headers
-  let csv = 'Transaction ID,Block Height,Date,Time,Type,Amount (S256),Balance After\n';
+  let csv =
+    "Transaction ID,Block Height,Date,Time,Type,Amount (S256),Balance After\n";
 
   // Add each transaction
-  transactions.forEach(tx => {
+  transactions.forEach((tx) => {
     const date = new Date(tx.time * 1000);
     const dateStr = date.toLocaleDateString();
     const timeStr = date.toLocaleTimeString();
-    const direction = tx.addressAmount?.direction || 'in';
-    const txType = direction === 'out' ? 'Sent' : 'Received';
+    const direction = tx.addressAmount?.direction || "in";
+    const txType = direction === "out" ? "Sent" : "Received";
     const netAmount = Math.abs(tx.addressAmount?.net || 0);
-    const txid = tx.txid || '';
-    const blockHeight = tx.blockheight || 'Unconfirmed';
+    const txid = tx.txid || "";
+    const blockHeight = tx.blockheight || "Unconfirmed";
 
     // Escape commas in txid
     const escapedTxid = `"${txid}"`;
@@ -1450,49 +1572,55 @@ function exportToCSV(address) {
   });
 
   // Create download link
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
 
-  link.setAttribute('href', url);
-  link.setAttribute('download', `S256_${address.substring(0, 12)}_transactions_${Date.now()}.csv`);
-  link.style.visibility = 'hidden';
+  link.setAttribute("href", url);
+  link.setAttribute(
+    "download",
+    `S256_${address.substring(0, 12)}_transactions_${Date.now()}.csv`,
+  );
+  link.style.visibility = "hidden";
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
 
-  showNotification('CSV exported successfully!', 'success');
+  showNotification("CSV exported successfully!", "success");
 }
 
 // Export address report to PDF (opens print dialog for PDF save)
 function exportToPDF(address) {
   if (!window.currentAddressData) {
-    showNotification('No address data available to export', 'error');
+    showNotification("No address data available to export", "error");
     return;
   }
 
   const data = window.currentAddressData;
 
   // Create a new window with printable content
-  const printWindow = window.open('', '_blank');
+  const printWindow = window.open("", "_blank");
 
   // Generate transaction rows (all transactions for complete tax reporting)
-  const transactionsHTML = data.transactions.map(tx => {
-    const date = new Date(tx.time * 1000).toLocaleString();
-    const direction = tx.addressAmount?.direction || 'in';
-    const netAmount = tx.addressAmount?.net || 0;
-    const typeClass = direction === 'out' ? 'tx-out' : 'tx-in';
-    const amountDisplay = direction === 'in' ? `+${netAmount.toFixed(8)}` : netAmount.toFixed(8);
+  const transactionsHTML = data.transactions
+    .map((tx) => {
+      const date = new Date(tx.time * 1000).toLocaleString();
+      const direction = tx.addressAmount?.direction || "in";
+      const netAmount = tx.addressAmount?.net || 0;
+      const typeClass = direction === "out" ? "tx-out" : "tx-in";
+      const amountDisplay =
+        direction === "in" ? `+${netAmount.toFixed(8)}` : netAmount.toFixed(8);
 
-    return `
+      return `
       <tr>
         <td style="font-family: monospace; font-size: 9px; word-break: break-all;">${tx.txid}</td>
-        <td>${tx.blockheight || 'Pending'}</td>
+        <td>${tx.blockheight || "Pending"}</td>
         <td>${date}</td>
         <td class="${typeClass}">${amountDisplay} S256</td>
       </tr>
     `;
-  }).join('');
+    })
+    .join("");
 
   const transactionSummary = `<p style="text-align: center; color: #666; margin-top: 20px;">
       Total transactions: ${data.transactions.length}
@@ -1671,7 +1799,7 @@ function exportToPDF(address) {
 
   printWindow.document.close();
 
-  showNotification('PDF report opened in new window', 'success');
+  showNotification("PDF report opened in new window", "success");
 }
 
 // Make export functions globally accessible

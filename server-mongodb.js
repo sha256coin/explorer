@@ -1,93 +1,140 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
-const mongoose = require('mongoose');
-const path = require('path');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const geoip = require('geoip-lite');
-const Block = require('./models/Block');
-const Transaction = require('./models/Transaction');
-const Stats = require('./models/Stats');
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const axios = require("axios");
+const mongoose = require("mongoose");
+const path = require("path");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+const geoip = require("geoip-lite");
+const Block = require("./models/Block");
+const Transaction = require("./models/Transaction");
+const Stats = require("./models/Stats");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/s256explorer';
+const MONGODB_URI =
+  process.env.MONGODB_URI || "mongodb://localhost:27017/s256explorer";
+const TRUST_PROXY = process.env.TRUST_PROXY
+  ? /^\d+$/.test(process.env.TRUST_PROXY)
+    ? Number.parseInt(process.env.TRUST_PROXY, 10)
+    : process.env.TRUST_PROXY
+  : 1;
+const CORS_ORIGINS = process.env.CORS_ORIGINS;
+const MAX_RECENT_BLOCKS = 100;
+const MAX_RECENT_TXS = 100;
+const MAX_SEARCH_QUERY_LENGTH = 128;
+const MAX_ADDRESS_TX_LIMIT = 100;
+const MAX_STATS_HOURS = 24 * 30;
+const MAX_CHART_DAYS = 365;
 
 // S256 RPC configuration
-const RPC_USER = process.env.RPC_USER || 'user';
-const RPC_PASSWORD = process.env.RPC_PASSWORD || 'password';
-const RPC_HOST = process.env.RPC_HOST || '127.0.0.1';
-const RPC_PORT = process.env.RPC_PORT || '25332';
+const RPC_USER = process.env.RPC_USER || "user";
+const RPC_PASSWORD = process.env.RPC_PASSWORD || "password";
+const RPC_HOST = process.env.RPC_HOST || "127.0.0.1";
+const RPC_PORT = process.env.RPC_PORT || "25332";
 const RPC_URL = `http://${RPC_USER}:${RPC_PASSWORD}@${RPC_HOST}:${RPC_PORT}`;
+
+if (
+  process.env.NODE_ENV === "production" &&
+  (RPC_USER === "user" || RPC_PASSWORD === "password")
+) {
+  console.warn(
+    "Warning: RPC default credentials detected. Set RPC_USER and RPC_PASSWORD in production.",
+  );
+}
 
 // RPC helper function
 async function rpcCall(method, params = []) {
   try {
-    const response = await axios.post(RPC_URL, {
-      jsonrpc: '1.0',
-      id: 'explorer',
-      method: method,
-      params: params
-    }, {
-      headers: {
-        'Content-Type': 'application/json'
+    const response = await axios.post(
+      RPC_URL,
+      {
+        jsonrpc: "1.0",
+        id: "explorer",
+        method: method,
+        params: params,
       },
-      timeout: 10000
-    });
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        timeout: 10000,
+      },
+    );
     return response.data.result;
   } catch (error) {
     console.error(`RPC Error (${method}):`, error.message);
-    throw error;
+    if (error.response) {
+      throw new Error("Upstream RPC error");
+    }
+    if (error.code === "ECONNABORTED") {
+      throw new Error("RPC request timed out");
+    }
+    throw new Error("RPC request failed");
   }
 }
 
 // Trust proxy - fixes rate limiter when behind nginx/cloudflare
-app.set('trust proxy', true);
+app.set("trust proxy", TRUST_PROXY);
 
 // Security Middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com"],
-      scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://unpkg.com"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: [
-        "'self'",
-        "https://cdn.jsdelivr.net",
-        "https://*.openstreetmap.org",
-        "https://*.basemaps.cartocdn.com",
-        "https://api.qrserver.com"
-      ],
-      fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
-      frameAncestors: ["'none'"],
-      baseUri: ["'self'"],
-      formAction: ["'self'"],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "https://cdn.jsdelivr.net",
+          "https://unpkg.com",
+        ],
+        scriptSrcAttr: ["'unsafe-inline'"],
+        styleSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://cdn.jsdelivr.net",
+          "https://unpkg.com",
+        ],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: [
+          "'self'",
+          "https://cdn.jsdelivr.net",
+          "https://unpkg.com",
+          "https://*.openstreetmap.org",
+          "https://*.basemaps.cartocdn.com",
+          "https://api.qrserver.com",
+        ],
+        fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+      },
     },
-  },
-  crossOriginEmbedderPolicy: false,
-  crossOriginOpenerPolicy: { policy: "same-origin" },
-  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true
-  },
-  noSniff: true,
-  xssFilter: true,
-  hidePoweredBy: true,
-}));
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: { policy: "same-origin" },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    noSniff: true,
+    xssFilter: true,
+    hidePoweredBy: true,
+  }),
+);
 
 // Additional security headers
 app.use((req, res, next) => {
-  res.setHeader('Permissions-Policy',
-    'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()'
+  res.setHeader(
+    "Permissions-Policy",
+    "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
   );
   next();
 });
@@ -96,67 +143,99 @@ app.use((req, res, next) => {
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000, // Limit each IP to 1000 requests per windowMs (increased for browsing)
-  message: 'Too many requests from this IP, please try again later.',
+  message: "Too many requests from this IP, please try again later.",
   standardHeaders: true,
   legacyHeaders: false,
-  validate: {trustProxy: false}, // Disable proxy validation warning
+  validate: { trustProxy: false }, // Disable proxy validation warning
 });
 
 const searchLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
   max: 20, // Limit searches to 20 per minute
-  message: 'Too many search requests, please slow down.',
-  validate: {trustProxy: false}, // Disable proxy validation warning
+  message: "Too many search requests, please slow down.",
+  validate: { trustProxy: false }, // Disable proxy validation warning
 });
 
 // Apply rate limiting to API routes
-app.use('/api/', apiLimiter);
+app.use("/api/", apiLimiter);
 
 // Block access to sensitive files
 app.use((req, res, next) => {
-  const blockedFiles = ['.env', 'package.json', 'package-lock.json', '.git',
-                        'node_modules', 'sync.js', 'server-mongodb.js',
-                        'ecosystem.config.js', 'models'];
+  const blockedFiles = [
+    ".env",
+    "package.json",
+    "package-lock.json",
+    ".git",
+    "node_modules",
+    "sync.js",
+    "server-mongodb.js",
+    "ecosystem.config.js",
+    "models",
+  ];
 
   const requestedPath = req.path.toLowerCase();
-  const isBlocked = blockedFiles.some(file =>
-    requestedPath.includes(file.toLowerCase())
+  const isBlocked = blockedFiles.some((file) =>
+    requestedPath.includes(file.toLowerCase()),
   );
 
   if (isBlocked) {
-    return res.status(403).send('Access denied');
+    return res.status(403).send("Access denied");
   }
   next();
 });
 
 // Middleware
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+if (CORS_ORIGINS) {
+  const allowedOrigins = CORS_ORIGINS.split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error("Not allowed by CORS"));
+      },
+    }),
+  );
+} else {
+  // Keep API publicly available by default.
+  app.use(cors());
+}
+app.use(express.json({ limit: "10mb" }));
 
 // Only serve specific static files (HTML, CSS, JS for frontend)
-app.use(express.static(path.join(__dirname), {
-  dotfiles: 'deny', // Block all dotfiles (.env, .git, etc.)
-  index: ['index.html']
-}));
+app.use(
+  express.static(path.join(__dirname), {
+    dotfiles: "deny", // Block all dotfiles (.env, .git, etc.)
+    index: ["index.html"],
+  }),
+);
 
 // Connect to MongoDB
-mongoose.connect(MONGODB_URI).then(() => {
-  console.log('✅ Connected to MongoDB');
-}).catch(err => {
-  console.error('❌ MongoDB connection error:', err);
-  process.exit(1);
-});
+mongoose
+  .connect(MONGODB_URI)
+  .then(() => {
+    console.log("✅ Connected to MongoDB");
+  })
+  .catch((err) => {
+    console.error("❌ MongoDB connection error:", err);
+    process.exit(1);
+  });
 
 // API Routes
 
 // Get blockchain info
-app.get('/api/blockchain-info', async (req, res) => {
+app.get("/api/blockchain-info", async (req, res) => {
   try {
     // Get latest stats
     const latestStats = await Stats.findOne().sort({ timestamp: -1 });
 
     if (!latestStats) {
-      return res.status(503).json({ error: 'Sync service not running or no data available' });
+      return res
+        .status(503)
+        .json({ error: "Sync service not running or no data available" });
     }
 
     res.json({
@@ -164,55 +243,69 @@ app.get('/api/blockchain-info', async (req, res) => {
       difficulty: latestStats.difficulty,
       chainwork: latestStats.chainwork,
       connections: latestStats.connections,
-      networkhashps: latestStats.networkhashps
+      networkhashps: latestStats.networkhashps,
     });
   } catch (error) {
-    console.error('Error getting blockchain info:', error);
+    console.error("Error getting blockchain info:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Get recent blocks
-app.get('/api/blocks/recent/:count?', async (req, res) => {
+app.get("/api/blocks/recent/:count?", async (req, res) => {
   try {
-    const count = parseInt(req.params.count) || 10;
-    const page = parseInt(req.query.page) || 1;
+    const requestedCount = Number.parseInt(req.params.count || "10", 10);
+    const count = Number.isFinite(requestedCount)
+      ? Math.min(Math.max(requestedCount, 1), MAX_RECENT_BLOCKS)
+      : 10;
+    const requestedPage = Number.parseInt(req.query.page || "1", 10);
+    const page = Number.isFinite(requestedPage)
+      ? Math.max(requestedPage, 1)
+      : 1;
     const skip = (page - 1) * count;
 
     const blocks = await Block.find({ isOrphan: false })
       .sort({ height: -1 })
       .skip(skip)
       .limit(count)
-      .select('height hash time nTx size difficulty confirmations isOrphan')
+      .select("height hash time nTx size difficulty confirmations isOrphan")
       .lean();
 
     // Calculate confirmations dynamically for each block
     const latestStats = await Stats.findOne().sort({ timestamp: -1 });
     if (latestStats) {
-      blocks.forEach(block => {
+      blocks.forEach((block) => {
         block.confirmations = latestStats.blocks - block.height + 1;
       });
     }
 
     res.json(blocks);
   } catch (error) {
-    console.error('Error getting recent blocks:', error);
+    console.error("Error getting recent blocks:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Get recent transactions
-app.get('/api/transactions/recent/:count?', async (req, res) => {
+app.get("/api/transactions/recent/:count?", async (req, res) => {
   try {
-    const count = parseInt(req.params.count) || 20;
-    const page = parseInt(req.query.page) || 1;
+    const requestedCount = Number.parseInt(req.params.count || "20", 10);
+    const count = Number.isFinite(requestedCount)
+      ? Math.min(Math.max(requestedCount, 1), MAX_RECENT_TXS)
+      : 20;
+    const requestedPage = Number.parseInt(req.query.page || "1", 10);
+    const page = Number.isFinite(requestedPage)
+      ? Math.max(requestedPage, 1)
+      : 1;
     const skip = (page - 1) * count;
 
     const transactions = await Transaction.find({ isOrphan: false })
       .sort({ blockheight: -1, _id: -1 })
       .skip(skip)
       .limit(count)
-      .select('txid blockhash blockheight time blocktime size vsize vin vout isOrphan')
+      .select(
+        "txid blockhash blockheight time blocktime size vsize vin vout isOrphan",
+      )
       .lean();
 
     // Calculate confirmations and get block times
@@ -220,12 +313,18 @@ app.get('/api/transactions/recent/:count?', async (req, res) => {
     const currentHeight = latestStats ? latestStats.blocks : 0;
 
     // Get block times for transactions missing time field
-    const blockHeights = [...new Set(transactions.map(tx => tx.blockheight).filter(h => h !== undefined))];
-    const blocks = await Block.find({ height: { $in: blockHeights } }).select('height time').lean();
-    const blockTimeMap = new Map(blocks.map(b => [b.height, b.time]));
+    const blockHeights = [
+      ...new Set(
+        transactions.map((tx) => tx.blockheight).filter((h) => h !== undefined),
+      ),
+    ];
+    const blocks = await Block.find({ height: { $in: blockHeights } })
+      .select("height time")
+      .lean();
+    const blockTimeMap = new Map(blocks.map((b) => [b.height, b.time]));
 
     // Enrich transactions
-    const enrichedTxs = transactions.map(tx => {
+    const enrichedTxs = transactions.map((tx) => {
       const enriched = { ...tx };
 
       // Add confirmations
@@ -239,7 +338,9 @@ app.get('/api/transactions/recent/:count?', async (req, res) => {
       }
 
       // Calculate total output value
-      enriched.totalOutput = tx.vout ? tx.vout.reduce((sum, out) => sum + (out.value || 0), 0) : 0;
+      enriched.totalOutput = tx.vout
+        ? tx.vout.reduce((sum, out) => sum + (out.value || 0), 0)
+        : 0;
 
       // Check if coinbase
       enriched.isCoinbase = tx.vin && tx.vin.length > 0 && tx.vin[0].coinbase;
@@ -249,26 +350,28 @@ app.get('/api/transactions/recent/:count?', async (req, res) => {
 
     res.json(enrichedTxs);
   } catch (error) {
-    console.error('Error getting recent transactions:', error);
+    console.error("Error getting recent transactions:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Get block by hash or height
-app.get('/api/block/:hashOrHeight', async (req, res) => {
+app.get("/api/block/:hashOrHeight", async (req, res) => {
   try {
     const input = req.params.hashOrHeight;
     let block;
 
     // Check if input is a number (height) or hash
     if (/^\d+$/.test(input)) {
-      block = await Block.findOne({ height: parseInt(input) }).lean();
+      block = await Block.findOne({
+        height: Number.parseInt(input, 10),
+      }).lean();
     } else {
       block = await Block.findOne({ hash: input }).lean();
     }
 
     if (!block) {
-      return res.status(404).json({ error: 'Block not found' });
+      return res.status(404).json({ error: "Block not found" });
     }
 
     // Calculate confirmations dynamically
@@ -278,20 +381,20 @@ app.get('/api/block/:hashOrHeight', async (req, res) => {
     }
 
     // Populate transaction details if requested
-    if (req.query.verbose === 'true') {
+    if (req.query.verbose === "true") {
       const transactions = await Transaction.find({
-        txid: { $in: block.tx }
+        txid: { $in: block.tx },
       }).lean();
 
       // Enrich transactions with block time if missing
-      const enrichedTransactions = transactions.map(tx => {
+      const enrichedTransactions = transactions.map((tx) => {
         if (tx.time || tx.blocktime) {
           return tx;
         }
         return {
           ...tx,
           time: block.time,
-          blocktime: block.time
+          blocktime: block.time,
         };
       });
 
@@ -300,19 +403,19 @@ app.get('/api/block/:hashOrHeight', async (req, res) => {
 
     res.json(block);
   } catch (error) {
-    console.error('Error getting block:', error);
+    console.error("Error getting block:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Get transaction by txid
-app.get('/api/tx/:txid', async (req, res) => {
+app.get("/api/tx/:txid", async (req, res) => {
   try {
     const txid = req.params.txid;
     const tx = await Transaction.findOne({ txid }).lean();
 
     if (!tx) {
-      return res.status(404).json({ error: 'Transaction not found' });
+      return res.status(404).json({ error: "Transaction not found" });
     }
 
     // Calculate confirmations dynamically
@@ -323,7 +426,9 @@ app.get('/api/tx/:txid', async (req, res) => {
 
     // Get block time if available
     if (tx.blockhash) {
-      const block = await Block.findOne({ hash: tx.blockhash }).select('time').lean();
+      const block = await Block.findOne({ hash: tx.blockhash })
+        .select("time")
+        .lean();
       if (block) {
         tx.blocktime = block.time;
       }
@@ -343,14 +448,14 @@ app.get('/api/tx/:txid', async (req, res) => {
         if (input.txid && input.vout !== undefined) {
           try {
             const prevTx = await Transaction.findOne({ txid: input.txid })
-              .select('vout')
+              .select("vout")
               .lean();
 
             if (prevTx && prevTx.vout && prevTx.vout[input.vout]) {
               // Add the prevout data (the output being spent)
               tx.vin[i].prevout = {
                 value: prevTx.vout[input.vout].value,
-                scriptPubKey: prevTx.vout[input.vout].scriptPubKey
+                scriptPubKey: prevTx.vout[input.vout].scriptPubKey,
               };
             }
           } catch (err) {
@@ -363,21 +468,21 @@ app.get('/api/tx/:txid', async (req, res) => {
 
     res.json(tx);
   } catch (error) {
-    console.error('Error getting transaction:', error);
+    console.error("Error getting transaction:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Get mempool (unconfirmed transactions)
-app.get('/api/mempool', async (req, res) => {
+app.get("/api/mempool", async (req, res) => {
   try {
     // Get raw mempool with verbose details to get fee info
-    const mempoolVerbose = await rpcCall('getrawmempool', [true]);
+    const mempoolVerbose = await rpcCall("getrawmempool", [true]);
 
-    if (!mempoolVerbose || typeof mempoolVerbose !== 'object') {
+    if (!mempoolVerbose || typeof mempoolVerbose !== "object") {
       return res.json({
         transactions: [],
-        stats: { count: 0, totalSize: 0, totalFees: 0, totalVSize: 0 }
+        stats: { count: 0, totalSize: 0, totalFees: 0, totalVSize: 0 },
       });
     }
 
@@ -386,36 +491,43 @@ app.get('/api/mempool', async (req, res) => {
     if (mempoolTxIds.length === 0) {
       return res.json({
         transactions: [],
-        stats: { count: 0, totalSize: 0, totalFees: 0, totalVSize: 0 }
+        stats: { count: 0, totalSize: 0, totalFees: 0, totalVSize: 0 },
       });
     }
 
     // Fetch the full transaction details for each txid in the mempool
-    const txPromises = mempoolTxIds.map(txid => rpcCall('getrawtransaction', [txid, true]));
+    const txPromises = mempoolTxIds.map((txid) =>
+      rpcCall("getrawtransaction", [txid, true]),
+    );
     let fullTransactions = await Promise.all(txPromises);
 
     // Create a map of full transaction details by txid for easy lookup
-    const txDetailsMap = new Map(fullTransactions.map(tx => [tx.txid, tx]));
+    const txDetailsMap = new Map(fullTransactions.map((tx) => [tx.txid, tx]));
 
     // Combine the mempool-specific data (like fees) with the full transaction data
-    let combinedTransactions = mempoolTxIds.map(txid => {
+    let combinedTransactions = mempoolTxIds.map((txid) => {
       const mempoolEntry = mempoolVerbose[txid];
       const fullTx = txDetailsMap.get(txid);
       return {
-        ...fullTx,       // Full details like vin, vout
+        ...fullTx, // Full details like vin, vout
         ...mempoolEntry, // Mempool specific info like fees, time
-        txid: txid       // Ensure txid is at the top level
+        txid: txid, // Ensure txid is at the top level
       };
     });
 
     // --- Populate prevout data for inputs of mempool transactions ---
     // Collect all unique input txids that need prevout lookup
     const inputTxidsToFetch = new Set();
-    combinedTransactions.forEach(tx => {
+    combinedTransactions.forEach((tx) => {
       if (tx.vin) {
-        tx.vin.forEach(input => {
+        tx.vin.forEach((input) => {
           // Only fetch if it's not a coinbase and prevout is missing
-          if (!input.coinbase && input.txid && input.vout !== undefined && !input.prevout) {
+          if (
+            !input.coinbase &&
+            input.txid &&
+            input.vout !== undefined &&
+            !input.prevout
+          ) {
             inputTxidsToFetch.add(input.txid);
           }
         });
@@ -426,27 +538,34 @@ app.get('/api/mempool', async (req, res) => {
     if (inputTxidsToFetch.size > 0) {
       // Fetch previous transactions from the MongoDB, not RPC, for efficiency
       const prevTxs = await Transaction.find({
-        txid: { $in: Array.from(inputTxidsToFetch) }
-      }).select('txid vout').lean();
+        txid: { $in: Array.from(inputTxidsToFetch) },
+      })
+        .select("txid vout")
+        .lean();
 
-      prevTxs.forEach(tx => {
+      prevTxs.forEach((tx) => {
         prevTxMap.set(tx.txid, tx);
       });
     }
 
     // Now, enrich the combinedTransactions with prevout data
-    combinedTransactions = combinedTransactions.map(tx => {
+    combinedTransactions = combinedTransactions.map((tx) => {
       if (tx.vin) {
-        tx.vin = tx.vin.map(input => {
-          if (!input.coinbase && input.txid && input.vout !== undefined && !input.prevout) {
+        tx.vin = tx.vin.map((input) => {
+          if (
+            !input.coinbase &&
+            input.txid &&
+            input.vout !== undefined &&
+            !input.prevout
+          ) {
             const prevTx = prevTxMap.get(input.txid);
             if (prevTx && prevTx.vout && prevTx.vout[input.vout]) {
               return {
                 ...input,
                 prevout: {
                   value: prevTx.vout[input.vout].value,
-                  scriptPubKey: prevTx.vout[input.vout].scriptPubKey
-                }
+                  scriptPubKey: prevTx.vout[input.vout].scriptPubKey,
+                },
               };
             }
           }
@@ -457,136 +576,166 @@ app.get('/api/mempool', async (req, res) => {
     });
     // --- End populate prevout data ---
 
-
     // Sort by time (most recent first) as a default sorting
     combinedTransactions.sort((a, b) => (b.time || 0) - (a.time || 0));
 
     // Calculate statistics
     const stats = {
       count: combinedTransactions.length,
-      totalSize: combinedTransactions.reduce((sum, tx) => sum + (tx.size || 0), 0),
-      totalFees: combinedTransactions.reduce((sum, tx) => sum + (tx.fees?.base || 0), 0),
-      totalVSize: combinedTransactions.reduce((sum, tx) => sum + (tx.vsize || 0), 0)
+      totalSize: combinedTransactions.reduce(
+        (sum, tx) => sum + (tx.size || 0),
+        0,
+      ),
+      totalFees: combinedTransactions.reduce(
+        (sum, tx) => sum + (tx.fees?.base || 0),
+        0,
+      ),
+      totalVSize: combinedTransactions.reduce(
+        (sum, tx) => sum + (tx.vsize || 0),
+        0,
+      ),
     };
 
     res.json({
       transactions: combinedTransactions,
-      stats
+      stats,
     });
   } catch (error) {
-    console.error('Error getting mempool:', error);
+    console.error("Error getting mempool:", error);
     res.status(500).json({
       error: error.message,
       transactions: [],
-      stats: { count: 0, totalSize: 0, totalFees: 0, totalVSize: 0 }
+      stats: { count: 0, totalSize: 0, totalFees: 0, totalVSize: 0 },
     });
   }
 });
 
 // Get transactions by block hash or height
-app.get('/api/block/:hashOrHeight/transactions', async (req, res) => {
+app.get("/api/block/:hashOrHeight/transactions", async (req, res) => {
   try {
     const input = req.params.hashOrHeight;
     let block;
 
     if (/^\d+$/.test(input)) {
-      block = await Block.findOne({ height: parseInt(input) }).lean();
+      block = await Block.findOne({
+        height: Number.parseInt(input, 10),
+      }).lean();
     } else {
       block = await Block.findOne({ hash: input }).lean();
     }
 
     if (!block) {
-      return res.status(404).json({ error: 'Block not found' });
+      return res.status(404).json({ error: "Block not found" });
     }
 
     const transactions = await Transaction.find({
-      txid: { $in: block.tx }
+      txid: { $in: block.tx },
     }).lean();
 
     res.json(transactions);
   } catch (error) {
-    console.error('Error getting block transactions:', error);
+    console.error("Error getting block transactions:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Search (block height, block hash, or txid) - with extra rate limiting
-app.get('/api/search/:query', searchLimiter, async (req, res) => {
+app.get("/api/search/:query", searchLimiter, async (req, res) => {
   try {
     const query = req.params.query.trim();
+    if (!query || query.length > MAX_SEARCH_QUERY_LENGTH) {
+      return res.status(400).json({ error: "Invalid search query" });
+    }
 
     // Try as block height
     if (/^\d+$/.test(query)) {
-      const block = await Block.findOne({ height: parseInt(query), isOrphan: false }).lean();
+      const block = await Block.findOne({
+        height: Number.parseInt(query, 10),
+        isOrphan: false,
+      }).lean();
       if (block) {
-        return res.json({ type: 'block', data: block });
+        return res.json({ type: "block", data: block });
       }
     }
 
     // Try as block hash
     const block = await Block.findOne({ hash: query }).lean();
     if (block) {
-      return res.json({ type: 'block', data: block });
+      return res.json({ type: "block", data: block });
     }
 
     // Try as transaction
     const tx = await Transaction.findOne({ txid: query }).lean();
     if (tx) {
-      return res.json({ type: 'transaction', data: tx });
+      return res.json({ type: "transaction", data: tx });
     }
 
     // Try as address (find transactions)
     const txsByAddress = await Transaction.find({
       $or: [
-        { 'vout.scriptPubKey.address': query },
-        { 'vin.prevout.scriptPubKey.address': query }
-      ]
-    }).limit(50).sort({ blockheight: -1 }).lean();
+        { "vout.scriptPubKey.address": query },
+        { "vin.prevout.scriptPubKey.address": query },
+      ],
+    })
+      .limit(50)
+      .sort({ blockheight: -1 })
+      .lean();
 
     if (txsByAddress.length > 0) {
-      return res.json({ type: 'address', data: { address: query, transactions: txsByAddress } });
+      return res.json({
+        type: "address",
+        data: { address: query, transactions: txsByAddress },
+      });
     }
 
-    res.status(404).json({ error: 'No results found for the given query' });
+    res.status(404).json({ error: "No results found for the given query" });
   } catch (error) {
-    console.error('Error searching:', error);
+    console.error("Error searching:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Get mempool info
-app.get('/api/mempool', async (req, res) => {
+app.get("/api/mempool", async (req, res) => {
   try {
     const latestStats = await Stats.findOne().sort({ timestamp: -1 });
 
     if (!latestStats) {
-      return res.status(503).json({ error: 'No data available' });
+      return res.status(503).json({ error: "No data available" });
     }
 
     res.json({
-      size: latestStats.mempoolsize || 0
+      size: latestStats.mempoolsize || 0,
     });
   } catch (error) {
-    console.error('Error getting mempool:', error);
+    console.error("Error getting mempool:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Get address info (balance and transactions)
-app.get('/api/address/:address/txs', async (req, res) => {
+app.get("/api/address/:address/txs", async (req, res) => {
   try {
     const address = req.params.address;
-    const offset = parseInt(req.query.offset) || 0;
-    const limit = parseInt(req.query.limit) || 10;
+    const requestedOffset = Number.parseInt(req.query.offset || "0", 10);
+    const requestedLimit = Number.parseInt(req.query.limit || "10", 10);
+    const offset = Number.isFinite(requestedOffset)
+      ? Math.max(requestedOffset, 0)
+      : 0;
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), MAX_ADDRESS_TX_LIMIT)
+      : 10;
 
     // Step 1: Find all transactions where address received coins (in outputs)
     const receivingTxs = await Transaction.find({
-      'vout.scriptPubKey.address': address
-    }).select('txid vout').lean();
+      "vout.scriptPubKey.address": address,
+    })
+      .select("txid vout")
+      .lean();
 
     // Build a set of output references that belong to this address
     const addressOutputs = new Set();
-    receivingTxs.forEach(tx => {
+    receivingTxs.forEach((tx) => {
       tx.vout.forEach((output, index) => {
         if (output.scriptPubKey && output.scriptPubKey.address === address) {
           addressOutputs.add(`${tx.txid}:${index}`);
@@ -599,18 +748,24 @@ app.get('/api/address/:address/txs', async (req, res) => {
     const spendingTxIds = new Set();
     if (addressOutputs.size > 0) {
       // Get list of unique txids that have outputs belonging to this address
-      const receivingTxIds = Array.from(new Set(receivingTxs.map(tx => tx.txid)));
+      const receivingTxIds = Array.from(
+        new Set(receivingTxs.map((tx) => tx.txid)),
+      );
 
       // Find all transactions that have inputs spending these outputs
       const allTxsWithInputs = await Transaction.find({
-        'vin.txid': { $in: receivingTxIds }
-      }).select('txid vin').lean();
+        "vin.txid": { $in: receivingTxIds },
+      })
+        .select("txid vin")
+        .lean();
 
-      console.log(`Address ${address}: Found ${allTxsWithInputs.length} transactions with inputs referencing ${receivingTxIds.length} receiving txs, checking ${addressOutputs.size} address outputs`);
+      console.log(
+        `Address ${address}: Found ${allTxsWithInputs.length} transactions with inputs referencing ${receivingTxIds.length} receiving txs, checking ${addressOutputs.size} address outputs`,
+      );
 
       let matchedInputs = 0;
-      allTxsWithInputs.forEach(tx => {
-        tx.vin.forEach(input => {
+      allTxsWithInputs.forEach((tx) => {
+        tx.vin.forEach((input) => {
           if (!input.coinbase && input.txid && input.vout !== undefined) {
             const outputRef = `${input.txid}:${input.vout}`;
             if (addressOutputs.has(outputRef)) {
@@ -621,20 +776,26 @@ app.get('/api/address/:address/txs', async (req, res) => {
         });
       });
 
-      console.log(`Address ${address}: Matched ${matchedInputs} inputs spending address outputs, found ${spendingTxIds.size} spending transactions`);
+      console.log(
+        `Address ${address}: Matched ${matchedInputs} inputs spending address outputs, found ${spendingTxIds.size} spending transactions`,
+      );
     }
 
     // Step 3: Get full transaction details for all involved transactions
     const allTxIds = new Set([
-      ...receivingTxs.map(tx => tx.txid),
-      ...Array.from(spendingTxIds)
+      ...receivingTxs.map((tx) => tx.txid),
+      ...Array.from(spendingTxIds),
     ]);
 
     const transactions = await Transaction.find({
-      txid: { $in: Array.from(allTxIds) }
-    }).sort({ blockheight: -1 }).lean();
+      txid: { $in: Array.from(allTxIds) },
+    })
+      .sort({ blockheight: -1 })
+      .lean();
 
-    console.log(`Address ${address}: Found ${receivingTxs.length} receiving txs, ${spendingTxIds.size} spending txs, ${transactions.length} total`);
+    console.log(
+      `Address ${address}: Found ${receivingTxs.length} receiving txs, ${spendingTxIds.size} spending txs, ${transactions.length} total`,
+    );
 
     // Get current block height for coinbase maturity check
     const latestBlock = await Block.findOne().sort({ height: -1 });
@@ -642,9 +803,15 @@ app.get('/api/address/:address/txs', async (req, res) => {
     const COINBASE_MATURITY = 200; // S256 coin maturity requirement
 
     // Get block times for transactions missing time field
-    const blockHeights = [...new Set(transactions.map(tx => tx.blockheight).filter(h => h !== undefined))];
-    const blocks = await Block.find({ height: { $in: blockHeights } }).select('height time').lean();
-    const blockTimeMap = new Map(blocks.map(b => [b.height, b.time]));
+    const blockHeights = [
+      ...new Set(
+        transactions.map((tx) => tx.blockheight).filter((h) => h !== undefined),
+      ),
+    ];
+    const blocks = await Block.find({ height: { $in: blockHeights } })
+      .select("height time")
+      .lean();
+    const blockTimeMap = new Map(blocks.map((b) => [b.height, b.time]));
 
     // Calculate balance using UTXO method for consistency with holders page
     const utxos = new Map(); // Map of txid:vout -> {value, txid, vout}
@@ -658,7 +825,8 @@ app.get('/api/address/:address/txs', async (req, res) => {
       const isCoinbase = tx.vin && tx.vin.length > 0 && tx.vin[0].coinbase;
 
       // Calculate confirmations (only if we have blockheight)
-      const confirmations = tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
+      const confirmations =
+        tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
 
       // Skip immature coinbase outputs (need MORE than maturity confirmations)
       if (isCoinbase && confirmations <= COINBASE_MATURITY) {
@@ -671,7 +839,7 @@ app.get('/api/address/:address/txs', async (req, res) => {
           utxos.set(utxoKey, {
             value: vout.value,
             txid: tx.txid,
-            vout: vout.n
+            vout: vout.n,
           });
         }
       }
@@ -700,9 +868,14 @@ app.get('/api/address/:address/txs', async (req, res) => {
     // Calculate immature coinbase balance separately
     for (const tx of allTxs) {
       const isCoinbase = tx.vin && tx.vin.length > 0 && tx.vin[0].coinbase;
-      const confirmations = tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
+      const confirmations =
+        tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
 
-      if (isCoinbase && confirmations > 0 && confirmations <= COINBASE_MATURITY) {
+      if (
+        isCoinbase &&
+        confirmations > 0 &&
+        confirmations <= COINBASE_MATURITY
+      ) {
         for (const vout of tx.vout) {
           if (vout.scriptPubKey.address === address) {
             immatureBalance += vout.value;
@@ -713,9 +886,9 @@ app.get('/api/address/:address/txs', async (req, res) => {
 
     // Collect all unique input txids that need prevout lookup
     const inputTxids = new Set();
-    transactions.forEach(tx => {
+    transactions.forEach((tx) => {
       if (tx.vin) {
-        tx.vin.forEach(input => {
+        tx.vin.forEach((input) => {
           if (!input.coinbase && !input.prevout && input.txid) {
             inputTxids.add(input.txid);
           }
@@ -727,16 +900,18 @@ app.get('/api/address/:address/txs', async (req, res) => {
     const prevTxMap = new Map();
     if (inputTxids.size > 0) {
       const prevTxs = await Transaction.find({
-        txid: { $in: Array.from(inputTxids) }
-      }).select('txid vout').lean();
+        txid: { $in: Array.from(inputTxids) },
+      })
+        .select("txid vout")
+        .lean();
 
-      prevTxs.forEach(tx => {
+      prevTxs.forEach((tx) => {
         prevTxMap.set(tx.txid, tx);
       });
     }
 
     // Enrich transactions with block time, prevout data, and calculate amounts for this address
-    const enrichedTransactions = transactions.map(tx => {
+    const enrichedTransactions = transactions.map((tx) => {
       // Add block time if missing
       let enrichedTx = { ...tx };
       if (!tx.time && !tx.blocktime) {
@@ -744,7 +919,7 @@ app.get('/api/address/:address/txs', async (req, res) => {
         enrichedTx.time = blockTime;
         enrichedTx.blocktime = blockTime;
       }
-      
+
       // Calculate confirmations dynamically
       if (currentHeight && tx.blockheight !== undefined) {
         enrichedTx.confirmations = currentHeight - tx.blockheight + 1;
@@ -756,7 +931,7 @@ app.get('/api/address/:address/txs', async (req, res) => {
 
       // Sum outputs to this address (received)
       if (enrichedTx.vout) {
-        enrichedTx.vout.forEach(output => {
+        enrichedTx.vout.forEach((output) => {
           if (output.scriptPubKey && output.scriptPubKey.address === address) {
             receivedAmount += parseFloat(output.value);
           }
@@ -765,7 +940,7 @@ app.get('/api/address/:address/txs', async (req, res) => {
 
       // Sum inputs from this address (sent)
       if (enrichedTx.vin && enrichedTx.vin.length > 0) {
-        enrichedTx.vin.forEach(input => {
+        enrichedTx.vin.forEach((input) => {
           // Skip coinbase inputs
           if (input.coinbase) {
             return;
@@ -786,7 +961,10 @@ app.get('/api/address/:address/txs', async (req, res) => {
               const prevOut = prevTx.vout[input.vout];
 
               // Check if this input came from our address
-              if (prevOut.scriptPubKey && prevOut.scriptPubKey.address === address) {
+              if (
+                prevOut.scriptPubKey &&
+                prevOut.scriptPubKey.address === address
+              ) {
                 sentAmount += parseFloat(prevOut.value);
               }
             }
@@ -795,35 +973,41 @@ app.get('/api/address/:address/txs', async (req, res) => {
       }
 
       // Calculate net amount and direction
-      const netAmount = sentAmount > 0 ? -(sentAmount - receivedAmount) : receivedAmount;
-      const direction = sentAmount > 0 ? 'out' : 'in';
+      const netAmount =
+        sentAmount > 0 ? -(sentAmount - receivedAmount) : receivedAmount;
+      const direction = sentAmount > 0 ? "out" : "in";
 
       // Add calculated data to transaction
       enrichedTx.addressAmount = {
         received: receivedAmount,
         sent: sentAmount,
         net: netAmount,
-        direction: direction
+        direction: direction,
       };
 
       return enrichedTx;
     });
 
-    const outgoingCount = enrichedTransactions.filter(tx => tx.addressAmount.direction === 'out').length;
-    console.log(`Address ${address}: enriched ${transactions.length} transactions, ${outgoingCount} outgoing, fetched ${prevTxMap.size} previous txs`);
+    const outgoingCount = enrichedTransactions.filter(
+      (tx) => tx.addressAmount.direction === "out",
+    ).length;
+    console.log(
+      `Address ${address}: enriched ${transactions.length} transactions, ${outgoingCount} outgoing, fetched ${prevTxMap.size} previous txs`,
+    );
 
     // Calculate received and sent from NET transaction amounts (matches what users see in transaction list)
     // Important: Exclude immature coinbase transactions (need > 200 confirmations)
     let received = 0;
     let sent = 0;
 
-    enrichedTransactions.forEach(tx => {
+    enrichedTransactions.forEach((tx) => {
       if (tx.addressAmount) {
         // Check if this is a coinbase transaction
         const isCoinbase = tx.vin && tx.vin.length > 0 && tx.vin[0].coinbase;
 
         // Calculate confirmations
-        const confirmations = tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
+        const confirmations =
+          tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
 
         // Skip immature coinbase transactions
         if (isCoinbase && confirmations <= COINBASE_MATURITY) {
@@ -841,7 +1025,10 @@ app.get('/api/address/:address/txs', async (req, res) => {
       }
     });
 
-    const paginatedTransactions = enrichedTransactions.slice(offset, offset + limit);
+    const paginatedTransactions = enrichedTransactions.slice(
+      offset,
+      offset + limit,
+    );
 
     res.json({
       address,
@@ -850,91 +1037,112 @@ app.get('/api/address/:address/txs', async (req, res) => {
       received,
       sent,
       txCount: transactions.length,
-      transactions: paginatedTransactions
+      transactions: paginatedTransactions,
     });
   } catch (error) {
-    console.error('Error getting address info:', error);
+    console.error("Error getting address info:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Get network stats history
-app.get('/api/stats/history', async (req, res) => {
+app.get("/api/stats/history", async (req, res) => {
   try {
-    const hours = parseInt(req.query.hours) || 24;
+    const requestedHours = Number.parseInt(req.query.hours || "24", 10);
+    const hours = Number.isFinite(requestedHours)
+      ? Math.min(Math.max(requestedHours, 1), MAX_STATS_HOURS)
+      : 24;
     const since = new Date(Date.now() - hours * 60 * 60 * 1000);
 
     const stats = await Stats.find({
-      timestamp: { $gte: since }
-    }).sort({ timestamp: 1 }).lean();
+      timestamp: { $gte: since },
+    })
+      .sort({ timestamp: 1 })
+      .lean();
 
     res.json(stats);
   } catch (error) {
-    console.error('Error getting stats history:', error);
+    console.error("Error getting stats history:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Get chart data for various metrics
-app.get('/api/charts/:metric', async (req, res) => {
+app.get("/api/charts/:metric", async (req, res) => {
   try {
     const metric = req.params.metric;
-    const days = parseInt(req.query.days) || 7;
+    const requestedDays = Number.parseInt(req.query.days || "7", 10);
+    const days = Number.isFinite(requestedDays)
+      ? Math.min(Math.max(requestedDays, 1), MAX_CHART_DAYS)
+      : 7;
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
     let data = [];
 
     switch (metric) {
-      case 'hashrate':
+      case "hashrate":
         // Get hashrate from stats, one sample per hour
         const hashrateStats = await Stats.find({
-          timestamp: { $gte: since }
-        }).sort({ timestamp: 1 }).lean();
+          timestamp: { $gte: since },
+        })
+          .sort({ timestamp: 1 })
+          .lean();
 
         // Group by hour to reduce data points
         const hashrateByHour = {};
-        hashrateStats.forEach(stat => {
+        hashrateStats.forEach((stat) => {
           const hour = new Date(stat.timestamp).setMinutes(0, 0, 0);
-          if (!hashrateByHour[hour] || stat.timestamp > hashrateByHour[hour].timestamp) {
+          if (
+            !hashrateByHour[hour] ||
+            stat.timestamp > hashrateByHour[hour].timestamp
+          ) {
             hashrateByHour[hour] = stat;
           }
         });
 
-        data = Object.values(hashrateByHour).map(stat => ({
+        data = Object.values(hashrateByHour).map((stat) => ({
           timestamp: stat.timestamp,
-          value: stat.networkhashps || 0
+          value: stat.networkhashps || 0,
         }));
         break;
 
-      case 'difficulty':
+      case "difficulty":
         // Get difficulty from stats
         const difficultyStats = await Stats.find({
-          timestamp: { $gte: since }
-        }).sort({ timestamp: 1 }).lean();
+          timestamp: { $gte: since },
+        })
+          .sort({ timestamp: 1 })
+          .lean();
 
         const difficultyByHour = {};
-        difficultyStats.forEach(stat => {
+        difficultyStats.forEach((stat) => {
           const hour = new Date(stat.timestamp).setMinutes(0, 0, 0);
-          if (!difficultyByHour[hour] || stat.timestamp > difficultyByHour[hour].timestamp) {
+          if (
+            !difficultyByHour[hour] ||
+            stat.timestamp > difficultyByHour[hour].timestamp
+          ) {
             difficultyByHour[hour] = stat;
           }
         });
 
-        data = Object.values(difficultyByHour).map(stat => ({
+        data = Object.values(difficultyByHour).map((stat) => ({
           timestamp: stat.timestamp,
-          value: stat.difficulty || 0
+          value: stat.difficulty || 0,
         }));
         break;
 
-      case 'transactions':
+      case "transactions":
         // Get transaction count per day from blocks
         const txBlocks = await Block.find({
-          time: { $gte: Math.floor(since.getTime() / 1000) }
-        }).select('time nTx').sort({ time: 1 }).lean();
+          time: { $gte: Math.floor(since.getTime() / 1000) },
+        })
+          .select("time nTx")
+          .sort({ time: 1 })
+          .lean();
 
         // Group by day
         const txByDay = {};
-        txBlocks.forEach(block => {
+        txBlocks.forEach((block) => {
           const day = new Date(block.time * 1000).setHours(0, 0, 0, 0);
           if (!txByDay[day]) {
             txByDay[day] = { timestamp: new Date(day), count: 0 };
@@ -942,21 +1150,24 @@ app.get('/api/charts/:metric', async (req, res) => {
           txByDay[day].count += block.nTx || 0;
         });
 
-        data = Object.values(txByDay).map(day => ({
+        data = Object.values(txByDay).map((day) => ({
           timestamp: day.timestamp,
-          value: day.count
+          value: day.count,
         }));
         break;
 
-      case 'blocksize':
+      case "blocksize":
         // Get average block size per day
         const sizeBlocks = await Block.find({
-          time: { $gte: Math.floor(since.getTime() / 1000) }
-        }).select('time size').sort({ time: 1 }).lean();
+          time: { $gte: Math.floor(since.getTime() / 1000) },
+        })
+          .select("time size")
+          .sort({ time: 1 })
+          .lean();
 
         // Group by day and calculate average
         const sizeByDay = {};
-        sizeBlocks.forEach(block => {
+        sizeBlocks.forEach((block) => {
           const day = new Date(block.time * 1000).setHours(0, 0, 0, 0);
           if (!sizeByDay[day]) {
             sizeByDay[day] = { timestamp: new Date(day), total: 0, count: 0 };
@@ -965,20 +1176,23 @@ app.get('/api/charts/:metric', async (req, res) => {
           sizeByDay[day].count += 1;
         });
 
-        data = Object.values(sizeByDay).map(day => ({
+        data = Object.values(sizeByDay).map((day) => ({
           timestamp: day.timestamp,
-          value: day.count > 0 ? day.total / day.count : 0
+          value: day.count > 0 ? day.total / day.count : 0,
         }));
         break;
 
-      case 'blocks':
+      case "blocks":
         // Get blocks mined per day
         const blocks = await Block.find({
-          time: { $gte: Math.floor(since.getTime() / 1000) }
-        }).select('time').sort({ time: 1 }).lean();
+          time: { $gte: Math.floor(since.getTime() / 1000) },
+        })
+          .select("time")
+          .sort({ time: 1 })
+          .lean();
 
         const blocksByDay = {};
-        blocks.forEach(block => {
+        blocks.forEach((block) => {
           const day = new Date(block.time * 1000).setHours(0, 0, 0, 0);
           if (!blocksByDay[day]) {
             blocksByDay[day] = { timestamp: new Date(day), count: 0 };
@@ -986,19 +1200,22 @@ app.get('/api/charts/:metric', async (req, res) => {
           blocksByDay[day].count += 1;
         });
 
-        data = Object.values(blocksByDay).map(day => ({
+        data = Object.values(blocksByDay).map((day) => ({
           timestamp: day.timestamp,
-          value: day.count
+          value: day.count,
         }));
         break;
 
       default:
-        return res.status(400).json({ error: 'Invalid metric. Use: hashrate, difficulty, transactions, blocksize, or blocks' });
+        return res.status(400).json({
+          error:
+            "Invalid metric. Use: hashrate, difficulty, transactions, blocksize, or blocks",
+        });
     }
 
     res.json({ metric, days, data });
   } catch (error) {
-    console.error('Error getting chart data:', error);
+    console.error("Error getting chart data:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1006,7 +1223,7 @@ app.get('/api/charts/:metric', async (req, res) => {
 // Price Cache
 let priceCache = {
   data: null,
-  timestamp: 0
+  timestamp: 0,
 };
 const PRICE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -1014,15 +1231,15 @@ const PRICE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 let holdersCache = {
   data: null,
   timestamp: 0,
-  isCalculating: false
+  isCalculating: false,
 };
 const HOLDERS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 async function calculateHolders() {
   const now = Date.now();
-  
+
   // Return cached data if valid
-  if (holdersCache.data && (now - holdersCache.timestamp) < HOLDERS_CACHE_TTL) {
+  if (holdersCache.data && now - holdersCache.timestamp < HOLDERS_CACHE_TTL) {
     return holdersCache.data;
   }
 
@@ -1042,8 +1259,8 @@ async function calculateHolders() {
     // Get all transactions to calculate balances using UTXO method
     // Optimization: only get necessary fields
     const transactions = await Transaction.find(
-      { isOrphan: false }, 
-      'txid blockheight vin vout'
+      { isOrphan: false },
+      "txid blockheight vin vout",
     ).lean();
 
     // Build UTXO set
@@ -1056,7 +1273,8 @@ async function calculateHolders() {
       const isCoinbase = tx.vin && tx.vin.length > 0 && tx.vin[0].coinbase;
 
       // Calculate confirmations
-      const confirmations = tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
+      const confirmations =
+        tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
 
       // Skip immature coinbase outputs
       if (isCoinbase && confirmations <= COINBASE_MATURITY) {
@@ -1068,7 +1286,7 @@ async function calculateHolders() {
           const utxoKey = `${tx.txid}:${vout.n}`;
           utxos[utxoKey] = {
             address: vout.scriptPubKey.address,
-            value: vout.value
+            value: vout.value,
           };
 
           // Track unique transactions per address
@@ -1101,9 +1319,9 @@ async function calculateHolders() {
       .map(([address, balance]) => ({
         address,
         balance,
-        txCount: txCounts[address] ? txCounts[address].size : 0
+        txCount: txCounts[address] ? txCounts[address].size : 0,
       }))
-      .filter(h => h.balance > 0)
+      .filter((h) => h.balance > 0)
       .sort((a, b) => b.balance - a.balance);
 
     // Calculate total supply
@@ -1129,47 +1347,51 @@ async function calculateHolders() {
         allHolders,
         circulatingSupply,
         totalHolders: allHolders.length,
-        timestamp: now
+        timestamp: now,
       },
       timestamp: now,
-      isCalculating: false
+      isCalculating: false,
     };
 
     return holdersCache.data;
   } catch (error) {
     holdersCache.isCalculating = false;
-    console.error('Error calculating holders:', error);
+    console.error("Error calculating holders:", error);
     throw error;
   }
 }
 
 // Get S256 price from Live Coin Watch
-app.get('/api/price', async (req, res) => {
+app.get("/api/price", async (req, res) => {
   try {
     const now = Date.now();
     // Check if cache is still valid
-    if (priceCache.data && (now - priceCache.timestamp) < PRICE_CACHE_TTL) {
+    if (priceCache.data && now - priceCache.timestamp < PRICE_CACHE_TTL) {
       return res.json(priceCache.data);
     }
 
     const LCW_API_KEY = process.env.LCW_API_KEY;
 
     if (!LCW_API_KEY) {
-      console.error('LCW_API_KEY is not configured in .env');
-      return res.status(503).json({ error: 'Price API key not configured' });
+      console.error("LCW_API_KEY is not configured in .env");
+      return res.status(503).json({ error: "Price API key not configured" });
     }
 
-    const response = await axios.post('https://api.livecoinwatch.com/coins/single', {
-      currency: 'USD',
-      code: 'S256',
-      meta: true
-    }, {
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': LCW_API_KEY
+    const response = await axios.post(
+      "https://api.livecoinwatch.com/coins/single",
+      {
+        currency: "USD",
+        code: "S256",
+        meta: true,
       },
-      timeout: 5000
-    });
+      {
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": LCW_API_KEY,
+        },
+        timeout: 5000,
+      },
+    );
 
     const priceData = response.data;
 
@@ -1179,49 +1401,51 @@ app.get('/api/price', async (req, res) => {
       price: priceData.rate,
       volume: priceData.volume,
       cap: priceData.cap,
-      liquidity: priceData.liquidity
+      liquidity: priceData.liquidity,
     };
 
     // Update cache
     priceCache = {
       data: customPriceData,
-      timestamp: now
+      timestamp: now,
     };
 
     res.json(customPriceData);
   } catch (error) {
-    console.error('Error getting price from Live Coin Watch:', error.message);
+    console.error("Error getting price from Live Coin Watch:", error.message);
 
     // If API fails, return cached data even if expired, or return a useful error
     if (priceCache.data) {
       return res.json(priceCache.data);
     }
 
-    res.status(503).json({ error: 'Price information currently unavailable' });
+    res.status(503).json({ error: "Price information currently unavailable" });
   }
 });
 
 // Health check
-app.get('/api/health', async (req, res) => {
+app.get("/api/health", async (req, res) => {
   try {
     const latestBlock = await Block.findOne().sort({ height: -1 });
     const latestStats = await Stats.findOne().sort({ timestamp: -1 });
 
-    const blockAge = latestBlock ? (Date.now() / 1000 - latestBlock.time) : null;
-    const statsAge = latestStats ? (Date.now() - latestStats.timestamp.getTime()) / 1000 : null;
+    const blockAge = latestBlock ? Date.now() / 1000 - latestBlock.time : null;
+    const statsAge = latestStats
+      ? (Date.now() - latestStats.timestamp.getTime()) / 1000
+      : null;
 
     res.json({
-      status: 'ok',
-      database: 'connected',
+      status: "ok",
+      database: "connected",
       latestBlock: latestBlock ? latestBlock.height : null,
       blockAge: blockAge ? `${Math.floor(blockAge / 60)} minutes` : null,
       statsAge: statsAge ? `${Math.floor(statsAge)} seconds` : null,
-      syncing: statsAge > 120 ? 'warning: stats older than 2 minutes' : 'ok'
+      syncing: statsAge > 120 ? "warning: stats older than 2 minutes" : "ok",
     });
   } catch (error) {
     res.status(500).json({
-      status: 'error',
-      error: error.message
+      status: "error",
+      error: error.message,
     });
   }
 });
@@ -1231,11 +1455,11 @@ app.get('/api/health', async (req, res) => {
 // ========================================
 
 // Get current block count
-app.get('/api/getblockcount', async (req, res) => {
+app.get("/api/getblockcount", async (req, res) => {
   try {
     const latestStats = await Stats.findOne().sort({ timestamp: -1 });
     if (!latestStats) {
-      return res.status(503).send('0');
+      return res.status(503).send("0");
     }
     res.send(latestStats.blocks.toString());
   } catch (error) {
@@ -1244,11 +1468,11 @@ app.get('/api/getblockcount', async (req, res) => {
 });
 
 // Get current difficulty
-app.get('/api/getdifficulty', async (req, res) => {
+app.get("/api/getdifficulty", async (req, res) => {
   try {
     const latestStats = await Stats.findOne().sort({ timestamp: -1 });
     if (!latestStats) {
-      return res.status(503).send('0');
+      return res.status(503).send("0");
     }
     res.send(latestStats.difficulty.toString());
   } catch (error) {
@@ -1257,11 +1481,11 @@ app.get('/api/getdifficulty', async (req, res) => {
 });
 
 // Get network hashrate
-app.get('/api/getnetworkhashps', async (req, res) => {
+app.get("/api/getnetworkhashps", async (req, res) => {
   try {
     const latestStats = await Stats.findOne().sort({ timestamp: -1 });
     if (!latestStats) {
-      return res.status(503).send('0');
+      return res.status(503).send("0");
     }
     res.send(latestStats.networkhashps.toString());
   } catch (error) {
@@ -1270,11 +1494,11 @@ app.get('/api/getnetworkhashps', async (req, res) => {
 });
 
 // Get general info (comprehensive endpoint)
-app.get('/api/getinfo', async (req, res) => {
+app.get("/api/getinfo", async (req, res) => {
   try {
     const latestStats = await Stats.findOne().sort({ timestamp: -1 });
     if (!latestStats) {
-      return res.status(503).json({ error: 'No data available' });
+      return res.status(503).json({ error: "No data available" });
     }
 
     res.json({
@@ -1283,7 +1507,7 @@ app.get('/api/getinfo', async (req, res) => {
       networkhashps: latestStats.networkhashps,
       connections: latestStats.connections,
       chainwork: latestStats.chainwork,
-      chain: 'main'
+      chain: "main",
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1291,11 +1515,11 @@ app.get('/api/getinfo', async (req, res) => {
 });
 
 // Get coin supply info
-app.get('/api/supply', async (req, res) => {
+app.get("/api/supply", async (req, res) => {
   try {
     const latestStats = await Stats.findOne().sort({ timestamp: -1 });
     if (!latestStats) {
-      return res.status(503).json({ error: 'No data available' });
+      return res.status(503).json({ error: "No data available" });
     }
 
     const blockCount = latestStats.blocks;
@@ -1321,7 +1545,7 @@ app.get('/api/supply', async (req, res) => {
       circulatingSupply: circulatingSupply,
       totalSupply: 84000000,
       maxSupply: 84000000,
-      blocks: blockCount
+      blocks: blockCount,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1329,47 +1553,52 @@ app.get('/api/supply', async (req, res) => {
 });
 
 // Get top holders (rich list)
-app.get('/api/holders', async (req, res) => {
+app.get("/api/holders", async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 100;
-    const { allHolders, circulatingSupply, totalHolders } = await calculateHolders();
+    const { allHolders, circulatingSupply, totalHolders } =
+      await calculateHolders();
 
     const topHolders = allHolders.slice(0, limit).map((holder, index) => ({
       rank: index + 1,
       ...holder,
-      percentage: circulatingSupply > 0 ? (holder.balance / circulatingSupply) * 100 : 0
+      percentage:
+        circulatingSupply > 0 ? (holder.balance / circulatingSupply) * 100 : 0,
     }));
 
     res.json({
       holders: topHolders,
       totalHolders,
       circulatingSupply,
-      topHoldersBalance: topHolders.reduce((sum, h) => sum + h.balance, 0)
+      topHoldersBalance: topHolders.reduce((sum, h) => sum + h.balance, 0),
     });
   } catch (error) {
-    console.error('Error getting holders:', error);
+    console.error("Error getting holders:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Get rank for a specific address or balance
-app.get('/api/holders/rank', async (req, res) => {
+app.get("/api/holders/rank", async (req, res) => {
   try {
     const { address, balance } = req.query;
-    
+
     if (!address && !balance) {
-      return res.status(400).json({ error: 'Either address or balance parameter is required' });
+      return res
+        .status(400)
+        .json({ error: "Either address or balance parameter is required" });
     }
 
-    const { allHolders, circulatingSupply, totalHolders } = await calculateHolders();
+    const { allHolders, circulatingSupply, totalHolders } =
+      await calculateHolders();
 
     let result = {
       circulatingSupply,
-      totalHolders
+      totalHolders,
     };
 
     if (address) {
-      const rankIndex = allHolders.findIndex(h => h.address === address);
+      const rankIndex = allHolders.findIndex((h) => h.address === address);
       if (rankIndex !== -1) {
         const holder = allHolders[rankIndex];
         result = {
@@ -1377,22 +1606,27 @@ app.get('/api/holders/rank', async (req, res) => {
           address: holder.address,
           balance: holder.balance,
           rank: rankIndex + 1,
-          percentage: circulatingSupply > 0 ? (holder.balance / circulatingSupply) * 100 : 0,
-          txCount: holder.txCount
+          percentage:
+            circulatingSupply > 0
+              ? (holder.balance / circulatingSupply) * 100
+              : 0,
+          txCount: holder.txCount,
         };
       } else {
-        return res.status(404).json({ error: 'Address not found in holders list' });
+        return res
+          .status(404)
+          .json({ error: "Address not found in holders list" });
       }
     } else if (balance) {
       const searchBalance = parseFloat(balance);
       if (isNaN(searchBalance)) {
-        return res.status(400).json({ error: 'Invalid balance value' });
+        return res.status(400).json({ error: "Invalid balance value" });
       }
 
       // Find where this balance would land
       // Since allHolders is sorted desc, find first index where holder.balance <= searchBalance
-      let rank = allHolders.findIndex(h => h.balance <= searchBalance);
-      
+      let rank = allHolders.findIndex((h) => h.balance <= searchBalance);
+
       // If not found, it's lower than all existing holders
       if (rank === -1) {
         rank = allHolders.length + 1;
@@ -1404,36 +1638,37 @@ app.get('/api/holders/rank', async (req, res) => {
         ...result,
         searchBalance,
         rank,
-        percentage: circulatingSupply > 0 ? (searchBalance / circulatingSupply) * 100 : 0
+        percentage:
+          circulatingSupply > 0 ? (searchBalance / circulatingSupply) * 100 : 0,
       };
     }
 
     res.json(result);
   } catch (error) {
-    console.error('Error getting holder rank:', error);
+    console.error("Error getting holder rank:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Get network peers
-app.get('/api/peers', async (req, res) => {
+app.get("/api/peers", async (req, res) => {
   try {
-    const peerInfo = await rpcCall('getpeerinfo');
+    const peerInfo = await rpcCall("getpeerinfo");
 
     // Add country information to each peer
-    const peersWithGeo = peerInfo.map(peer => {
+    const peersWithGeo = peerInfo.map((peer) => {
       // Extract IP from "ip:port" format (handle both IPv4 and IPv6)
       let ip = null;
       if (peer.addr) {
-        if (peer.addr.startsWith('[')) {
+        if (peer.addr.startsWith("[")) {
           // IPv6: extract between [ and ]
-          const endBracket = peer.addr.indexOf(']');
+          const endBracket = peer.addr.indexOf("]");
           if (endBracket !== -1) {
             ip = peer.addr.substring(1, endBracket);
           }
         } else {
           // IPv4: split on first colon
-          ip = peer.addr.split(':')[0];
+          ip = peer.addr.split(":")[0];
         }
       }
 
@@ -1461,16 +1696,16 @@ app.get('/api/peers', async (req, res) => {
         countryCode,
         lat,
         lon,
-        ip
+        ip,
       };
     });
 
     res.json({
       peers: peersWithGeo,
-      count: peersWithGeo.length
+      count: peersWithGeo.length,
     });
   } catch (error) {
-    console.error('Error getting peer info:', error);
+    console.error("Error getting peer info:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1481,19 +1716,25 @@ app.get('/api/peers', async (req, res) => {
 
 // Get address transactions with pagination
 // Used by wallet to fetch transaction history
-app.get('/ext/getaddresstxs/:address/:start/:limit', async (req, res) => {
+app.get("/ext/getaddresstxs/:address/:start/:limit", async (req, res) => {
   try {
     const { address, start, limit } = req.params;
-    const startIndex = parseInt(start) || 0;
-    const limitCount = Math.min(parseInt(limit) || 50, 100); // Max 100 per request
+    const parsedStart = Number.parseInt(start || "0", 10);
+    const parsedLimit = Number.parseInt(limit || "50", 10);
+    const startIndex = Number.isFinite(parsedStart)
+      ? Math.max(parsedStart, 0)
+      : 0;
+    const limitCount = Number.isFinite(parsedLimit)
+      ? Math.min(Math.max(parsedLimit, 1), 100)
+      : 50; // Max 100 per request
 
     // Query transactions where address is in vout OR vin
     const transactions = await Transaction.find({
       isOrphan: false,
       $or: [
-        { 'vout.scriptPubKey.address': address },
-        { 'vin.prevout.scriptPubKey.address': address }
-      ]
+        { "vout.scriptPubKey.address": address },
+        { "vin.prevout.scriptPubKey.address": address },
+      ],
     })
       .sort({ blockheight: -1 }) // Most recent first
       .skip(startIndex)
@@ -1501,50 +1742,63 @@ app.get('/ext/getaddresstxs/:address/:start/:limit', async (req, res) => {
       .lean();
 
     // Get block timestamps for transactions that don't have time field
-    const blockHeights = [...new Set(transactions.map(tx => tx.blockheight).filter(h => h !== undefined))];
+    const blockHeights = [
+      ...new Set(
+        transactions.map((tx) => tx.blockheight).filter((h) => h !== undefined),
+      ),
+    ];
     const blocks = await Block.find({ height: { $in: blockHeights } }).lean();
-    const blockTimeMap = new Map(blocks.map(b => [b.height, b.time]));
+    const blockTimeMap = new Map(blocks.map((b) => [b.height, b.time]));
 
     // Format transactions for wallet app with sent/received/balance
     // Note: Balance is calculated cumulatively from transaction history
     let runningBalance = 0;
 
-    const formattedTxs = transactions.reverse().map((tx) => {
-      // Calculate received: sum of vout amounts where address matches
-      const received = (tx.vout || [])
-        .filter(vout => vout.scriptPubKey?.address === address)
-        .reduce((sum, vout) => sum + (vout.value || 0), 0);
+    const formattedTxs = transactions
+      .reverse()
+      .map((tx) => {
+        // Calculate received: sum of vout amounts where address matches
+        const received = (tx.vout || [])
+          .filter((vout) => vout.scriptPubKey?.address === address)
+          .reduce((sum, vout) => sum + (vout.value || 0), 0);
 
-      // Calculate sent: sum of vin amounts where prevout address matches
-      const sent = (tx.vin || [])
-        .filter(vin => vin.prevout?.scriptPubKey?.address === address)
-        .reduce((sum, vin) => sum + (vin.prevout?.value || 0), 0);
+        // Calculate sent: sum of vin amounts where prevout address matches
+        const sent = (tx.vin || [])
+          .filter((vin) => vin.prevout?.scriptPubKey?.address === address)
+          .reduce((sum, vin) => sum + (vin.prevout?.value || 0), 0);
 
-      // Update running balance (received - sent for this tx)
-      runningBalance += (received - sent);
+        // Update running balance (received - sent for this tx)
+        runningBalance += received - sent;
 
-      // Get timestamp from tx.time, tx.blocktime, or block.time
-      const timestamp = tx.time || tx.blocktime || (tx.blockheight !== undefined ? blockTimeMap.get(tx.blockheight) : null) || 0;
+        // Get timestamp from tx.time, tx.blocktime, or block.time
+        const timestamp =
+          tx.time ||
+          tx.blocktime ||
+          (tx.blockheight !== undefined
+            ? blockTimeMap.get(tx.blockheight)
+            : null) ||
+          0;
 
-      return {
-        txid: tx.txid,
-        timestamp: timestamp,
-        sent: sent,
-        received: received,
-        balance: runningBalance
-      };
-    }).reverse(); // Reverse back to most recent first
+        return {
+          txid: tx.txid,
+          timestamp: timestamp,
+          sent: sent,
+          received: received,
+          balance: runningBalance,
+        };
+      })
+      .reverse(); // Reverse back to most recent first
 
     res.json(formattedTxs);
   } catch (error) {
-    console.error('Error getting address transactions:', error);
+    console.error("Error getting address transactions:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Get transaction by txid
 // Used by wallet to show transaction details
-app.get('/ext/gettx/:txid', async (req, res) => {
+app.get("/ext/gettx/:txid", async (req, res) => {
   try {
     const { txid } = req.params;
 
@@ -1552,7 +1806,7 @@ app.get('/ext/gettx/:txid', async (req, res) => {
     const transaction = await Transaction.findOne({ txid }).lean();
 
     if (!transaction) {
-      return res.status(404).json({ error: 'Transaction not found' });
+      return res.status(404).json({ error: "Transaction not found" });
     }
 
     // Calculate total output value (in satoshis)
@@ -1562,55 +1816,60 @@ app.get('/ext/gettx/:txid', async (req, res) => {
 
     // Format vin with amount and addresses
     // Fetch prevout data from database if not present
-    const formattedVin = await Promise.all((transaction.vin || []).map(async (vin) => {
-      if (vin.coinbase) {
-        return {
-          coinbase: vin.coinbase,
-          amount: 0,
-          addresses: 'Coinbase (Newly Generated Coins)'
-        };
-      }
+    const formattedVin = await Promise.all(
+      (transaction.vin || []).map(async (vin) => {
+        if (vin.coinbase) {
+          return {
+            coinbase: vin.coinbase,
+            amount: 0,
+            addresses: "Coinbase (Newly Generated Coins)",
+          };
+        }
 
-      // Check if prevout data is already in the vin
-      if (vin.prevout?.value !== undefined) {
-        return {
-          txid: vin.txid,
-          vout: vin.vout,
-          amount: Math.round(vin.prevout.value * 100000000),
-          addresses: vin.prevout.scriptPubKey?.address || 'Unknown'
-        };
-      }
-
-      // Fetch prevout data from database
-      try {
-        const prevTx = await Transaction.findOne({ txid: vin.txid }).lean();
-        if (prevTx && prevTx.vout && prevTx.vout[vin.vout]) {
-          const prevOutput = prevTx.vout[vin.vout];
+        // Check if prevout data is already in the vin
+        if (vin.prevout?.value !== undefined) {
           return {
             txid: vin.txid,
             vout: vin.vout,
-            amount: Math.round((prevOutput.value || 0) * 100000000),
-            addresses: prevOutput.scriptPubKey?.address || 'Unknown'
+            amount: Math.round(vin.prevout.value * 100000000),
+            addresses: vin.prevout.scriptPubKey?.address || "Unknown",
           };
         }
-      } catch (err) {
-        console.error(`Error fetching prevout for ${vin.txid}:${vin.vout}`, err);
-      }
 
-      // Fallback if prevout not found
-      return {
-        txid: vin.txid,
-        vout: vin.vout,
-        amount: 0,
-        addresses: 'Unknown'
-      };
-    }));
+        // Fetch prevout data from database
+        try {
+          const prevTx = await Transaction.findOne({ txid: vin.txid }).lean();
+          if (prevTx && prevTx.vout && prevTx.vout[vin.vout]) {
+            const prevOutput = prevTx.vout[vin.vout];
+            return {
+              txid: vin.txid,
+              vout: vin.vout,
+              amount: Math.round((prevOutput.value || 0) * 100000000),
+              addresses: prevOutput.scriptPubKey?.address || "Unknown",
+            };
+          }
+        } catch (err) {
+          console.error(
+            `Error fetching prevout for ${vin.txid}:${vin.vout}`,
+            err,
+          );
+        }
+
+        // Fallback if prevout not found
+        return {
+          txid: vin.txid,
+          vout: vin.vout,
+          amount: 0,
+          addresses: "Unknown",
+        };
+      }),
+    );
 
     // Format vout with amount and addresses
-    const formattedVout = (transaction.vout || []).map(vout => ({
+    const formattedVout = (transaction.vout || []).map((vout) => ({
       n: vout.n,
       amount: Math.round((vout.value || 0) * 100000000), // Convert to satoshis
-      addresses: vout.scriptPubKey?.address || 'Unknown'
+      addresses: vout.scriptPubKey?.address || "Unknown",
     }));
 
     // Format transaction data for wallet modal
@@ -1622,13 +1881,13 @@ app.get('/ext/gettx/:txid', async (req, res) => {
       blockhash: transaction.blockhash,
       blockheight: transaction.blockheight,
       confirmations: transaction.confirmations,
-      time: transaction.time || transaction.blocktime
+      time: transaction.time || transaction.blocktime,
     };
 
     // Wrap in 'tx' object as expected by wallet modal
     res.json({ tx: formattedTx });
   } catch (error) {
-    console.error('Error getting transaction:', error);
+    console.error("Error getting transaction:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1638,29 +1897,29 @@ app.get('/ext/gettx/:txid', async (req, res) => {
 // =============================================================================
 
 // Serve the main page
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 // Handle favicon (prevent 404)
-app.get('/favicon.ico', (req, res) => {
+app.get("/favicon.ico", (req, res) => {
   res.status(204).end(); // No content
 });
 
 // Catch-all route: serve index.html for any non-API route
 // This enables client-side routing for URLs like /block/:hash
-app.get('*', (req, res) => {
+app.get("*", (req, res) => {
   // Don't catch API routes (they're already handled above)
-  if (req.path.startsWith('/api/')) {
-    return res.status(404).json({ error: 'API endpoint not found' });
+  if (req.path.startsWith("/api/")) {
+    return res.status(404).json({ error: "API endpoint not found" });
   }
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Server error:', err.message);
-  res.status(500).json({ error: 'Internal server error' });
+  console.error("Server error:", err.message);
+  res.status(500).json({ error: "Internal server error" });
 });
 
 // Start server

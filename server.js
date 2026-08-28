@@ -1,110 +1,161 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
-const path = require('path');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const axios = require("axios");
+const path = require("path");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const TRUST_PROXY = process.env.TRUST_PROXY
+  ? /^\d+$/.test(process.env.TRUST_PROXY)
+    ? Number.parseInt(process.env.TRUST_PROXY, 10)
+    : process.env.TRUST_PROXY
+  : 1;
+const CORS_ORIGINS = process.env.CORS_ORIGINS;
+const MAX_RECENT_BLOCKS = 100;
+const MAX_SEARCH_QUERY_LENGTH = 128;
 
 // S256 RPC configuration
-const RPC_USER = process.env.RPC_USER || 'user';
-const RPC_PASSWORD = process.env.RPC_PASSWORD || 'password';
-const RPC_HOST = process.env.RPC_HOST || '127.0.0.1';
-const RPC_PORT = process.env.RPC_PORT || '25332';
+const RPC_USER = process.env.RPC_USER || "user";
+const RPC_PASSWORD = process.env.RPC_PASSWORD || "password";
+const RPC_HOST = process.env.RPC_HOST || "127.0.0.1";
+const RPC_PORT = process.env.RPC_PORT || "25332";
 
 const RPC_URL = `http://${RPC_USER}:${RPC_PASSWORD}@${RPC_HOST}:${RPC_PORT}`;
 
-// Trust proxy
-app.set('trust proxy', true);
+if (
+  process.env.NODE_ENV === "production" &&
+  (RPC_USER === "user" || RPC_PASSWORD === "password")
+) {
+  console.warn(
+    "Warning: RPC default credentials detected. Set RPC_USER and RPC_PASSWORD in production.",
+  );
+}
+
+// Trust proxy - fixes rate limiter when behind nginx/cloudflare
+app.set("trust proxy", TRUST_PROXY);
+// JSON body parser for RPC requests with size limit
+app.use(express.json({ limit: "50kb" }));
 
 // Security Middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: [
-        "'self'",
-        "https://*.openstreetmap.org",
-        "https://*.basemaps.cartocdn.com",
-        "https://api.qrserver.com"
-      ],
-      fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
-      objectSrc: ["'none'"],
-      frameSrc: ["'none'"],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "https://cdn.jsdelivr.net",
+        ],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: [
+          "'self'",
+          "https://unpkg.com",
+          "https://*.openstreetmap.org",
+          "https://*.basemaps.cartocdn.com",
+          "https://api.qrserver.com",
+        ],
+        fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
+        objectSrc: ["'none'"],
+        frameSrc: ["'none'"],
+      },
     },
-  },
-  crossOriginEmbedderPolicy: false,
-  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
-}));
+    crossOriginEmbedderPolicy: false,
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  }),
+);
 
 // Rate Limiting
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 500,
-  message: 'Too many requests, please try again later.',
+  message: "Too many requests, please try again later.",
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use('/api/', apiLimiter);
+app.use("/api/", apiLimiter);
 
 // Block sensitive files
 app.use((req, res, next) => {
-  const blocked = ['.env', 'package.json', 'server.js', '.git', 'node_modules'];
-  if (blocked.some(f => req.path.toLowerCase().includes(f))) {
-    return res.status(403).send('Access denied');
+  const blocked = [".env", "package.json", "server.js", ".git", "node_modules"];
+  if (blocked.some((f) => req.path.toLowerCase().includes(f))) {
+    return res.status(403).send("Access denied");
   }
   next();
 });
 
 // Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname), { dotfiles: 'deny' }));
+if (CORS_ORIGINS) {
+  const allowedOrigins = CORS_ORIGINS.split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error("Not allowed by CORS"));
+      },
+    }),
+  );
+} else {
+  // Keep API publicly available by default.
+  app.use(cors());
+}
+app.use(express.static(path.join(__dirname), { dotfiles: "deny" }));
 
 // RPC helper function
 async function rpcCall(method, params = []) {
   try {
-    const response = await axios.post(RPC_URL, {
-      jsonrpc: '1.0',
-      id: 'explorer',
-      method: method,
-      params: params
-    }, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
+    const response = await axios.post(
+      RPC_URL,
+      {
+        jsonrpc: "1.0",
+        id: "explorer",
+        method: method,
+        params: params,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        timeout: 10000,
+      },
+    );
     return response.data.result;
   } catch (error) {
     console.error(`RPC Error (${method}):`, error.message);
     if (error.response) {
-      throw new Error(error.response.data.error.message);
+      throw new Error("Upstream RPC error");
     }
-    throw error;
+    if (error.code === "ECONNABORTED") {
+      throw new Error("RPC request timed out");
+    }
+    throw new Error("RPC request failed");
   }
 }
 
 // API Routes
 
 // Get blockchain info
-app.get('/api/blockchain-info', async (req, res) => {
+app.get("/api/blockchain-info", async (req, res) => {
   try {
-    const info = await rpcCall('getblockchaininfo');
-    const networkInfo = await rpcCall('getnetworkinfo');
-    const miningInfo = await rpcCall('getmininginfo');
+    const info = await rpcCall("getblockchaininfo");
+    const networkInfo = await rpcCall("getnetworkinfo");
+    const miningInfo = await rpcCall("getmininginfo");
 
     res.json({
       blocks: info.blocks,
       difficulty: info.difficulty,
       chainwork: info.chainwork,
       connections: networkInfo.connections,
-      networkhashps: miningInfo.networkhashps
+      networkhashps: miningInfo.networkhashps,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -112,17 +163,20 @@ app.get('/api/blockchain-info', async (req, res) => {
 });
 
 // Get recent blocks
-app.get('/api/blocks/recent/:count?', async (req, res) => {
+app.get("/api/blocks/recent/:count?", async (req, res) => {
   try {
-    const count = parseInt(req.params.count) || 10;
-    const blockchainInfo = await rpcCall('getblockchaininfo');
+    const requestedCount = Number.parseInt(req.params.count || "10", 10);
+    const count = Number.isFinite(requestedCount)
+      ? Math.min(Math.max(requestedCount, 1), MAX_RECENT_BLOCKS)
+      : 10;
+    const blockchainInfo = await rpcCall("getblockchaininfo");
     const currentHeight = blockchainInfo.blocks;
 
     const blocks = [];
-    for (let i = 0; i < count && (currentHeight - i) >= 0; i++) {
+    for (let i = 0; i < count && currentHeight - i >= 0; i++) {
       const height = currentHeight - i;
-      const blockHash = await rpcCall('getblockhash', [height]);
-      const block = await rpcCall('getblock', [blockHash, 2]);
+      const blockHash = await rpcCall("getblockhash", [height]);
+      const block = await rpcCall("getblock", [blockHash, 2]);
 
       blocks.push({
         height: block.height,
@@ -131,7 +185,7 @@ app.get('/api/blocks/recent/:count?', async (req, res) => {
         nTx: block.nTx,
         size: block.size,
         difficulty: block.difficulty,
-        confirmations: block.confirmations
+        confirmations: block.confirmations,
       });
     }
 
@@ -142,19 +196,19 @@ app.get('/api/blocks/recent/:count?', async (req, res) => {
 });
 
 // Get block by hash or height
-app.get('/api/block/:hashOrHeight', async (req, res) => {
+app.get("/api/block/:hashOrHeight", async (req, res) => {
   try {
     let blockHash;
     const input = req.params.hashOrHeight;
 
     // Check if input is a number (height) or hash
     if (/^\d+$/.test(input)) {
-      blockHash = await rpcCall('getblockhash', [parseInt(input)]);
+      blockHash = await rpcCall("getblockhash", [Number.parseInt(input, 10)]);
     } else {
       blockHash = input;
     }
 
-    const block = await rpcCall('getblock', [blockHash, 2]);
+    const block = await rpcCall("getblock", [blockHash, 2]);
     res.json(block);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -162,10 +216,10 @@ app.get('/api/block/:hashOrHeight', async (req, res) => {
 });
 
 // Get transaction by txid
-app.get('/api/tx/:txid', async (req, res) => {
+app.get("/api/tx/:txid", async (req, res) => {
   try {
     const txid = req.params.txid;
-    const tx = await rpcCall('getrawtransaction', [txid, true]);
+    const tx = await rpcCall("getrawtransaction", [txid, true]);
     res.json(tx);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -173,44 +227,47 @@ app.get('/api/tx/:txid', async (req, res) => {
 });
 
 // Search (block height, block hash, or txid)
-app.get('/api/search/:query', async (req, res) => {
+app.get("/api/search/:query", async (req, res) => {
   try {
     const query = req.params.query.trim();
+    if (!query || query.length > MAX_SEARCH_QUERY_LENGTH) {
+      return res.status(400).json({ error: "Invalid search query" });
+    }
 
     // Try as block height
     if (/^\d+$/.test(query)) {
-      const height = parseInt(query);
-      const blockHash = await rpcCall('getblockhash', [height]);
-      const block = await rpcCall('getblock', [blockHash, 2]);
-      return res.json({ type: 'block', data: block });
+      const height = Number.parseInt(query, 10);
+      const blockHash = await rpcCall("getblockhash", [height]);
+      const block = await rpcCall("getblock", [blockHash, 2]);
+      return res.json({ type: "block", data: block });
     }
 
     // Try as block hash
     try {
-      const block = await rpcCall('getblock', [query, 2]);
-      return res.json({ type: 'block', data: block });
+      const block = await rpcCall("getblock", [query, 2]);
+      return res.json({ type: "block", data: block });
     } catch (e) {
       // Not a block hash, try transaction
     }
 
     // Try as transaction
     try {
-      const tx = await rpcCall('getrawtransaction', [query, true]);
-      return res.json({ type: 'transaction', data: tx });
+      const tx = await rpcCall("getrawtransaction", [query, true]);
+      return res.json({ type: "transaction", data: tx });
     } catch (e) {
       // Not a transaction
     }
 
-    res.status(404).json({ error: 'No results found for the given query' });
+    res.status(404).json({ error: "No results found for the given query" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
 // Get mempool info
-app.get('/api/mempool', async (req, res) => {
+app.get("/api/mempool", async (req, res) => {
   try {
-    const mempoolInfo = await rpcCall('getmempoolinfo');
+    const mempoolInfo = await rpcCall("getmempoolinfo");
     res.json(mempoolInfo);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -222,9 +279,9 @@ app.get('/api/mempool', async (req, res) => {
 // ========================================
 
 // Get current block count
-app.get('/api/getblockcount', async (req, res) => {
+app.get("/api/getblockcount", async (req, res) => {
   try {
-    const blockCount = await rpcCall('getblockcount');
+    const blockCount = await rpcCall("getblockcount");
     res.send(blockCount.toString());
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -232,9 +289,9 @@ app.get('/api/getblockcount', async (req, res) => {
 });
 
 // Get current difficulty
-app.get('/api/getdifficulty', async (req, res) => {
+app.get("/api/getdifficulty", async (req, res) => {
   try {
-    const difficulty = await rpcCall('getdifficulty');
+    const difficulty = await rpcCall("getdifficulty");
     res.send(difficulty.toString());
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -242,9 +299,9 @@ app.get('/api/getdifficulty', async (req, res) => {
 });
 
 // Get network hashrate
-app.get('/api/getnetworkhashps', async (req, res) => {
+app.get("/api/getnetworkhashps", async (req, res) => {
   try {
-    const hashps = await rpcCall('getnetworkhashps');
+    const hashps = await rpcCall("getnetworkhashps");
     res.send(hashps.toString());
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -252,12 +309,12 @@ app.get('/api/getnetworkhashps', async (req, res) => {
 });
 
 // Get general info (comprehensive endpoint)
-app.get('/api/getinfo', async (req, res) => {
+app.get("/api/getinfo", async (req, res) => {
   try {
     const [blockchainInfo, networkInfo, miningInfo] = await Promise.all([
-      rpcCall('getblockchaininfo'),
-      rpcCall('getnetworkinfo'),
-      rpcCall('getmininginfo')
+      rpcCall("getblockchaininfo"),
+      rpcCall("getnetworkinfo"),
+      rpcCall("getmininginfo"),
     ]);
 
     res.json({
@@ -269,7 +326,7 @@ app.get('/api/getinfo', async (req, res) => {
       subversion: networkInfo.subversion,
       protocolversion: networkInfo.protocolversion,
       chainwork: blockchainInfo.chainwork,
-      chain: blockchainInfo.chain
+      chain: blockchainInfo.chain,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -277,9 +334,9 @@ app.get('/api/getinfo', async (req, res) => {
 });
 
 // Get coin supply info
-app.get('/api/supply', async (req, res) => {
+app.get("/api/supply", async (req, res) => {
   try {
-    const blockchainInfo = await rpcCall('getblockchaininfo');
+    const blockchainInfo = await rpcCall("getblockchaininfo");
     const blockCount = blockchainInfo.blocks;
 
     // S256 parameters
@@ -303,7 +360,7 @@ app.get('/api/supply', async (req, res) => {
       circulating: circulatingSupply,
       total: 84000000,
       maxSupply: 84000000,
-      blocks: blockCount
+      blocks: blockCount,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -311,22 +368,22 @@ app.get('/api/supply', async (req, res) => {
 });
 
 // Get network peers
-app.get('/api/peers', async (req, res) => {
+app.get("/api/peers", async (req, res) => {
   try {
-    const peerInfo = await rpcCall('getpeerinfo');
+    const peerInfo = await rpcCall("getpeerinfo");
     res.json({
       peers: peerInfo,
-      count: peerInfo.length
+      count: peerInfo.length,
     });
   } catch (error) {
-    console.error('Error getting peer info:', error);
+    console.error("Error getting peer info:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Serve the main page
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 // Start server

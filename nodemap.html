@@ -428,7 +428,7 @@
         });
 
         // Dark theme tiles from CartoDB
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_2a1q_1_cb573a61a8ea2472e6db8908', {
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | &copy; <a href="https://carto.com/attributions">CARTO</a>',
           subdomains: 'abcd',
           maxZoom: 20
@@ -701,6 +701,15 @@
         initTheme();
         initMap();
         loadPeers();
+
+        console.log(
+          "%c S256 - Digital Platinum ",
+          "background: linear-gradient(135deg, #a300ff 0%, #00d4ff 100%); color: white; font-size: 20px; padding: 10px;",
+        );
+        console.log(
+          "%c Double the Work, Double the Value ",
+          "color: #a300ff; font-size: 14px;",
+        );
 
         // Hamburger menu
         const hamburger = document.getElementById("hamburger");
