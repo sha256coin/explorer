@@ -581,7 +581,16 @@
           const avgPing = peers.length > 0
             ? (peers.reduce((sum, p) => sum + (p.pingtime || 0), 0) / peers.length * 1000).toFixed(0)
             : 0;
-          const commonVersion = peers.length > 0 ? (peers[0].subver || 'N/A').replace(/\//g, ' ').trim() : 'N/A';
+          const versionCounts = {};
+          peers.forEach(p => {
+            const v = p.subver || 'N/A';
+            versionCounts[v] = (versionCounts[v] || 0) + 1;
+          });
+          const mostCommonSubver = Object.keys(versionCounts).reduce(
+            (best, v) => (versionCounts[v] > (versionCounts[best] || 0) ? v : best),
+            'N/A'
+          );
+          const commonVersion = peers.length > 0 ? mostCommonSubver.replace(/\//g, ' ').trim() : 'N/A';
 
           document.getElementById('total-nodes').textContent = peers.length;
           document.getElementById('total-countries').textContent = countries.size;
