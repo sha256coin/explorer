@@ -9,12 +9,18 @@
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
     <link rel="stylesheet" href="/styles.css?v=17" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="/theme.css?v=1" />
+    <script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("theme")||"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}</script>
   </head>
   <body>
     <nav class="navbar">
       <div class="container">
         <div class="nav-brand">
-          <span class="logo">S256</span>
+          <a href="/" class="brand-link"><img src="/static/images/s256_logo_200x200.png" alt="" class="brand-mark" width="34" height="34" /><span class="logo">S256</span></a>
           <span class="tagline">Block Explorer</span>
         </div>
         <button class="hamburger" id="hamburger" aria-label="Toggle menu">
@@ -29,6 +35,7 @@
           <a href="/nodemap.html" class="nav-link">Node Map</a>
           <a href="/holders.html" class="nav-link">Holders</a>
           <a href="/api.html" class="nav-link">API</a>
+          <a href="https://sha256coin.eu/mining" class="nav-link">Mining</a>
           <div class="nav-dropdown">
             <a href="#" class="nav-link dropdown-toggle">Tools ▼</a>
             <div class="dropdown-menu">
@@ -71,28 +78,28 @@
       <div class="container">
         <div class="stats-grid">
           <div class="stat-card">
-            <div class="stat-icon">📊</div>
+            <div class="stat-icon"><i class="fa-solid fa-cubes" aria-hidden="true"></i></div>
             <div class="stat-info">
               <div class="stat-label">Block Height</div>
               <div class="stat-value" id="blockHeight">-</div>
             </div>
           </div>
           <div class="stat-card">
-            <div class="stat-icon">⛏️</div>
+            <div class="stat-icon"><i class="fa-solid fa-microchip" aria-hidden="true"></i></div>
             <div class="stat-info">
               <div class="stat-label">Difficulty</div>
               <div class="stat-value" id="difficulty">-</div>
             </div>
           </div>
           <div class="stat-card">
-            <div class="stat-icon">💰</div>
+            <div class="stat-icon"><i class="fa-solid fa-bolt" aria-hidden="true"></i></div>
             <div class="stat-info">
               <div class="stat-label">Hash Rate</div>
               <div class="stat-value" id="hashrate">-</div>
             </div>
           </div>
           <div class="stat-card">
-            <div class="stat-icon">🔗</div>
+            <div class="stat-icon"><i class="fa-solid fa-network-wired" aria-hidden="true"></i></div>
             <div class="stat-info">
               <div class="stat-label">Connections</div>
               <div class="stat-value" id="connections">-</div>
@@ -112,13 +119,13 @@
         <!-- 7-Day Hashrate Chart -->
         <div id="hashrate-chart-section" style="margin-bottom: 2rem;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h2 style="margin: 0;">📈 Network Hashrate (7 Days)</h2>
+            <h2 style="margin: 0;"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Network Hashrate (7 Days)</h2>
             <a href="/charts.html" style="color: var(--primary); text-decoration: none; font-weight: 600; font-size: 0.9rem;">View All Charts →</a>
           </div>
           <div style="background: var(--bg-card); border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow); position: relative;">
             <div id="hashrate-chart-loading" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-card); display: flex; align-items: center; justify-content: center; border-radius: var(--radius); z-index: 10;">
               <div style="text-align: center;">
-                <div style="border: 3px solid rgba(163, 0, 255, 0.2); border-top: 3px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+                <div style="border: 3px solid rgba(245, 165, 36, 0.2); border-top: 3px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
                 <p style="color: var(--text-light);">Loading hashrate data...</p>
               </div>
             </div>
@@ -223,10 +230,10 @@
         </div>
         <div class="qr-modal-footer">
           <button class="btn-qr-action" onclick="copyAddressFromModal()">
-            <span>📋</span> Copy Address
+            <span><i class="fa-regular fa-copy" aria-hidden="true"></i></span> Copy Address
           </button>
           <button class="btn-qr-action" onclick="downloadQRFromModal()">
-            <span>💾</span> Download QR
+            <span><i class="fa-solid fa-hard-drive" aria-hidden="true"></i></span> Download QR
           </button>
         </div>
       </div>
@@ -291,9 +298,9 @@
           // Get theme colors
           const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
           const colors = {
-            primary: isDark ? '#a300ff' : '#8000cc',
-            text: isDark ? '#e0e0e0' : '#333333',
-            grid: isDark ? 'rgba(163, 0, 255, 0.1)' : 'rgba(163, 0, 255, 0.15)'
+            primary: isDark ? '#f5a524' : '#a85f00',
+            text: isDark ? '#98a1b0' : '#586170',
+            grid: isDark ? 'rgba(214, 222, 235, 0.06)' : 'rgba(20, 24, 31, 0.08)'
           };
 
           // Prepare chart data
@@ -392,11 +399,11 @@
 
         console.log(
           "%c S256 - Digital Platinum ",
-          "background: linear-gradient(135deg, #a300ff 0%, #00d4ff 100%); color: white; font-size: 20px; padding: 10px;",
+          "background: linear-gradient(100deg, #2a3038 0%, #6b7482 45%, #2a3038 100%); color: white; font-size: 20px; padding: 10px;",
         );
         console.log(
           "%c Double the Work, Double the Value ",
-          "color: #a300ff; font-size: 14px;",
+          "color: #a85f00; font-size: 14px;",
         );
 
         // Reload chart when theme changes

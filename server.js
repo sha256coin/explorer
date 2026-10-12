@@ -51,7 +51,7 @@ app.use(
           "'unsafe-eval'",
           "https://cdn.jsdelivr.net",
         ],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
         imgSrc: ["'self'", "data:", "https:"],
         connectSrc: [
           "'self'",
@@ -60,7 +60,7 @@ app.use(
           "https://*.basemaps.cartocdn.com",
           "https://api.qrserver.com",
         ],
-        fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
+        fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://fonts.gstatic.com"],
         objectSrc: ["'none'"],
         frameSrc: ["'none'"],
       },

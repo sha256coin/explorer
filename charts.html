@@ -49,7 +49,7 @@
       }
 
       .period-btn:hover {
-        background: rgba(163, 0, 255, 0.1);
+        background: rgba(245, 165, 36, 0.1);
         border-color: var(--primary);
       }
 
@@ -124,7 +124,7 @@
       }
 
       .spinner {
-        border: 3px solid rgba(163, 0, 255, 0.2);
+        border: 3px solid rgba(245, 165, 36, 0.2);
         border-top: 3px solid var(--primary);
         border-radius: 50%;
         width: 40px;
@@ -171,12 +171,18 @@
         }
       }
     </style>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="/theme.css?v=1" />
+    <script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("theme")||"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}</script>
   </head>
   <body>
     <nav class="navbar">
       <div class="container">
         <div class="nav-brand">
-          <span class="logo">S256</span>
+          <a href="/" class="brand-link"><img src="/static/images/s256_logo_200x200.png" alt="" class="brand-mark" width="34" height="34" /><span class="logo">S256</span></a>
           <span class="tagline">Block Explorer</span>
         </div>
         <button class="hamburger" id="hamburger" aria-label="Toggle menu">
@@ -191,6 +197,7 @@
           <a href="/nodemap.html" class="nav-link">Node Map</a>
           <a href="/holders.html" class="nav-link">Holders</a>
           <a href="/api.html" class="nav-link">API</a>
+          <a href="https://sha256coin.eu/mining" class="nav-link">Mining</a>
           <div class="nav-dropdown">
             <a href="#" class="nav-link dropdown-toggle">Tools ▼</a>
             <div class="dropdown-menu">
@@ -212,7 +219,7 @@
     <div class="charts-container">
       <div class="charts-header">
         <div>
-          <h1>📊 Charts & Statistics</h1>
+          <h1><i class="fa-solid fa-cubes" aria-hidden="true"></i> Charts & Statistics</h1>
           <p style="color: var(--text-light); margin: 0.5rem 0 0 0;">
             Historical network data and trends
           </p>
@@ -230,7 +237,7 @@
         <div class="chart-card">
           <div class="chart-header">
             <h2 class="chart-title">Network Hashrate</h2>
-            <span class="chart-icon">⛏️</span>
+            <span class="chart-icon"><i class="fa-solid fa-microchip" aria-hidden="true"></i></span>
           </div>
           <div class="chart-canvas-container">
             <canvas id="hashrate-chart"></canvas>
@@ -244,7 +251,7 @@
         <div class="chart-card">
           <div class="chart-header">
             <h2 class="chart-title">Network Difficulty</h2>
-            <span class="chart-icon">🎯</span>
+            <span class="chart-icon"><i class="fa-solid fa-bullseye" aria-hidden="true"></i></span>
           </div>
           <div class="chart-canvas-container">
             <canvas id="difficulty-chart"></canvas>
@@ -258,7 +265,7 @@
         <div class="chart-card">
           <div class="chart-header">
             <h2 class="chart-title">Daily Transactions</h2>
-            <span class="chart-icon">💸</span>
+            <span class="chart-icon"><i class="fa-solid fa-right-left" aria-hidden="true"></i></span>
           </div>
           <div class="chart-canvas-container">
             <canvas id="transactions-chart"></canvas>
@@ -272,7 +279,7 @@
         <div class="chart-card">
           <div class="chart-header">
             <h2 class="chart-title">Average Block Size</h2>
-            <span class="chart-icon">📦</span>
+            <span class="chart-icon"><i class="fa-solid fa-box" aria-hidden="true"></i></span>
           </div>
           <div class="chart-canvas-container">
             <canvas id="blocksize-chart"></canvas>
@@ -286,7 +293,7 @@
         <div class="chart-card">
           <div class="chart-header">
             <h2 class="chart-title">Daily Blocks Mined</h2>
-            <span class="chart-icon">🔗</span>
+            <span class="chart-icon"><i class="fa-solid fa-network-wired" aria-hidden="true"></i></span>
           </div>
           <div class="chart-canvas-container">
             <canvas id="blocks-chart"></canvas>
@@ -355,10 +362,10 @@
       function getChartColors() {
         const theme = document.documentElement.getAttribute("data-theme");
         return {
-          primary: theme === "dark" ? "#ff6f00" : "#e65100",
-          secondary: theme === "dark" ? "#00d4ff" : "#0099cc",
-          grid: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)",
-          text: theme === "dark" ? "#e9eef9" : "#1f2430"
+          primary: theme === "dark" ? "#f5a524" : "#a85f00",
+          secondary: theme === "dark" ? "#c9d0da" : "#586170",
+          grid: theme === "dark" ? "rgba(214, 222, 235, 0.06)" : "rgba(20, 24, 31, 0.08)",
+          text: theme === "dark" ? "#98a1b0" : "#586170"
         };
       }
 
@@ -639,11 +646,11 @@
 
         console.log(
           "%c S256 - Digital Platinum ",
-          "background: linear-gradient(135deg, #a300ff 0%, #00d4ff 100%); color: white; font-size: 20px; padding: 10px;",
+          "background: linear-gradient(100deg, #2a3038 0%, #6b7482 45%, #2a3038 100%); color: white; font-size: 20px; padding: 10px;",
         );
         console.log(
           "%c Double the Work, Double the Value ",
-          "color: #a300ff; font-size: 14px;",
+          "color: #a85f00; font-size: 14px;",
         );
 
         // Hamburger menu

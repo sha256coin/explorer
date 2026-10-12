@@ -49,7 +49,7 @@
       .header-search-bar input:focus {
         outline: none;
         border-color: var(--accent);
-        box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+        box-shadow: 0 0 0 3px rgba(201, 208, 218, 0.1);
       }
 
       .header-search-bar input::placeholder {
@@ -70,7 +70,7 @@
 
       .btn-header-search:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 16px rgba(163, 0, 255, 0.3);
+        box-shadow: 0 8px 16px rgba(245, 165, 36, 0.3);
       }
 
       .btn-header-search:active {
@@ -90,7 +90,7 @@
       }
 
       .transactions-table thead {
-        background: linear-gradient(135deg, var(--primary) 0%, #00d4ff 100%);
+        background: transparent;
         color: white;
       }
 
@@ -103,12 +103,12 @@
       }
 
       .transactions-table tbody tr {
-        border-bottom: 1px solid rgba(163, 0, 255, 0.1);
+        border-bottom: 1px solid rgba(245, 165, 36, 0.1);
         transition: all 0.2s ease;
       }
 
       .transactions-table tbody tr:hover {
-        background: rgba(163, 0, 255, 0.08);
+        background: rgba(245, 165, 36, 0.08);
         cursor: pointer;
         transform: scale(1.01);
       }
@@ -154,9 +154,9 @@
       }
 
       .badge-regular {
-        background: linear-gradient(135deg, #00d4ff 0%, #0080ff 100%);
+        background: linear-gradient(135deg, #5b9bd5 0%, #3d7ab8 100%);
         color: #fff;
-        box-shadow: 0 2px 8px rgba(0, 212, 255, 0.3);
+        box-shadow: 0 2px 8px rgba(201, 208, 218, 0.3);
       }
 
       .value-cell {
@@ -219,7 +219,7 @@
       }
 
       .spinner {
-        border: 3px solid rgba(163, 0, 255, 0.2);
+        border: 3px solid rgba(245, 165, 36, 0.2);
         border-top: 3px solid var(--primary);
         border-radius: 50%;
         width: 40px;
@@ -278,12 +278,18 @@
         }
       }
     </style>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="/theme.css?v=1" />
+    <script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("theme")||"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}</script>
   </head>
   <body>
     <nav class="navbar">
       <div class="container">
         <div class="nav-brand">
-          <span class="logo">S256</span>
+          <a href="/" class="brand-link"><img src="/static/images/s256_logo_200x200.png" alt="" class="brand-mark" width="34" height="34" /><span class="logo">S256</span></a>
           <span class="tagline">Block Explorer</span>
         </div>
         <button class="hamburger" id="hamburger" aria-label="Toggle menu">
@@ -298,6 +304,7 @@
           <a href="/nodemap.html" class="nav-link">Node Map</a>
           <a href="/holders.html" class="nav-link">Holders</a>
           <a href="/api.html" class="nav-link">API</a>
+          <a href="https://sha256coin.eu/mining" class="nav-link">Mining</a>
           <div class="nav-dropdown">
             <a href="#" class="nav-link dropdown-toggle">Tools ▼</a>
             <div class="dropdown-menu">
@@ -319,7 +326,7 @@
     <div class="transactions-container">
       <div class="transactions-header">
         <div class="transactions-header-text">
-          <h1>⚡ Recent Transactions</h1>
+          <h1><i class="fa-solid fa-bolt" aria-hidden="true"></i> Recent Transactions</h1>
           <p style="color: var(--text-light)">
             Latest transactions on the S256 blockchain
           </p>
@@ -654,11 +661,11 @@
 
         console.log(
           "%c S256 - Digital Platinum ",
-          "background: linear-gradient(135deg, #a300ff 0%, #00d4ff 100%); color: white; font-size: 20px; padding: 10px;",
+          "background: linear-gradient(100deg, #2a3038 0%, #6b7482 45%, #2a3038 100%); color: white; font-size: 20px; padding: 10px;",
         );
         console.log(
           "%c Double the Work, Double the Value ",
-          "color: #a300ff; font-size: 14px;",
+          "color: #a85f00; font-size: 14px;",
         );
 
         // Hamburger menu

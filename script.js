@@ -1640,13 +1640,13 @@ function exportToPDF(address) {
         .header {
           text-align: center;
           margin-bottom: 30px;
-          border-bottom: 3px solid #a300ff;
+          border-bottom: 3px solid #a85f00;
           padding-bottom: 20px;
         }
         .logo {
           font-size: 32px;
           font-weight: bold;
-          color: #a300ff;
+          color: #a85f00;
           margin-bottom: 5px;
         }
         .subtitle {
@@ -1679,7 +1679,7 @@ function exportToPDF(address) {
           padding: 15px;
           border-radius: 8px;
           text-align: center;
-          border-left: 4px solid #a300ff;
+          border-left: 4px solid #a85f00;
         }
         .stat-label {
           font-size: 12px;
@@ -1690,7 +1690,7 @@ function exportToPDF(address) {
         .stat-value {
           font-size: 18px;
           font-weight: bold;
-          color: #a300ff;
+          color: #a85f00;
         }
         table {
           width: 100%;
@@ -1698,7 +1698,7 @@ function exportToPDF(address) {
           margin-top: 20px;
         }
         th {
-          background: #a300ff;
+          background: #a85f00;
           color: white;
           padding: 12px;
           text-align: left;
@@ -1786,7 +1786,7 @@ function exportToPDF(address) {
       </div>
 
       <div class="no-print" style="text-align: center; margin-top: 30px;">
-        <button onclick="window.print()" style="padding: 10px 30px; background: #a300ff; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">
+        <button onclick="window.print()" style="padding: 10px 30px; background: #a85f00; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">
           Print / Save as PDF
         </button>
         <button onclick="window.close()" style="padding: 10px 30px; background: #666; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-left: 10px;">

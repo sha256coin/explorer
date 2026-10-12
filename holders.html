@@ -65,7 +65,7 @@
     }
 
     .holders-table thead {
-      background: linear-gradient(135deg, var(--primary) 0%, #00d4ff 100%);
+      background: transparent;
       color: white;
     }
 
@@ -82,7 +82,7 @@
     }
 
     .holders-table tbody tr:hover {
-      background: rgba(163, 0, 255, 0.05);
+      background: rgba(245, 165, 36, 0.05);
       cursor: pointer;
     }
 
@@ -131,7 +131,7 @@
 
     .percentage-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--primary) 0%, #00d4ff 100%);
+      background: var(--amber, #f5a524);
       border-radius: 3px;
       transition: width 0.3s ease;
     }
@@ -365,13 +365,19 @@
       }
     }
   </style>
-</head>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="/theme.css?v=1" />
+    <script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("theme")||"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}</script>
+  </head>
 
 <body>
   <nav class="navbar">
     <div class="container">
       <div class="nav-brand">
-        <span class="logo">S256</span>
+        <a href="/" class="brand-link"><img src="/static/images/s256_logo_200x200.png" alt="" class="brand-mark" width="34" height="34" /><span class="logo">S256</span></a>
         <span class="tagline">Block Explorer</span>
       </div>
       <button class="hamburger" id="hamburger" aria-label="Toggle menu">
@@ -386,6 +392,7 @@
         <a href="/nodemap.html" class="nav-link">Node Map</a>
         <a href="/holders.html" class="nav-link active">Holders</a>
         <a href="/api.html" class="nav-link">API</a>
+        <a href="https://sha256coin.eu/mining" class="nav-link">Mining</a>
         <div class="nav-dropdown">
           <a href="#" class="nav-link dropdown-toggle">Tools ▼</a>
           <div class="dropdown-menu">
@@ -406,7 +413,7 @@
 
   <div class="holders-container">
     <div class="holders-header">
-      <h1>💎 Top Holders</h1>
+      <h1><i class="fa-regular fa-gem" aria-hidden="true"></i> Top Holders</h1>
       <p style="color: var(--text-light)">
         Top 100 addresses ranked by S256 balance
       </p>
@@ -434,7 +441,7 @@
     <!-- Wealth Distribution -->
     <div class="distribution-container">
       <div class="distribution-card">
-        <h3>📊 Wealth Distribution</h3>
+        <h3><i class="fa-solid fa-cubes" aria-hidden="true"></i> Wealth Distribution</h3>
         <div class="chart-wrapper">
           <canvas id="wealthChart"></canvas>
         </div>
@@ -443,7 +450,7 @@
         </div>
       </div>
       <div class="distribution-card">
-        <h3>📈 Top Holders Concentration</h3>
+        <h3><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Top Holders Concentration</h3>
         <div class="chart-wrapper">
           <canvas id="concentrationChart"></canvas>
         </div>
@@ -455,7 +462,7 @@
 
     <!-- Rank Lookup -->
     <div class="holders-search-card">
-      <h3>🔍 Where do you land?</h3>
+      <h3><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Where do you land?</h3>
       <p>Enter your address or balance to see your rank on the rich list.</p>
       <div class="holders-search-box">
         <input type="text" id="rank-search-input" placeholder="Enter address or balance (e.g. 5000)..." />
@@ -529,10 +536,10 @@
 
       // 1. Wealth Distribution Data
       const wealthGroups = [
-        { label: 'Whales (> 1%)', min: circulatingSupply * 0.01, color: '#a300ff', count: 0, total: 0 },
-        { label: 'Investors (0.1% - 1%)', min: circulatingSupply * 0.001, max: circulatingSupply * 0.01, color: '#00d4ff', count: 0, total: 0 },
-        { label: 'Holders (0.01% - 0.1%)', min: circulatingSupply * 0.0001, max: circulatingSupply * 0.001, color: '#39ff14', count: 0, total: 0 },
-        { label: 'Community (< 0.01%)', max: circulatingSupply * 0.0001, color: '#ff007f', count: 0, total: 0 }
+        { label: 'Whales (> 1%)', min: circulatingSupply * 0.01, color: '#f5a524', count: 0, total: 0 },
+        { label: 'Investors (0.1% - 1%)', min: circulatingSupply * 0.001, max: circulatingSupply * 0.01, color: '#c9d0da', count: 0, total: 0 },
+        { label: 'Holders (0.01% - 0.1%)', min: circulatingSupply * 0.0001, max: circulatingSupply * 0.001, color: '#5b9bd5', count: 0, total: 0 },
+        { label: 'Community (< 0.01%)', max: circulatingSupply * 0.0001, color: '#c2683a', count: 0, total: 0 }
       ];
 
       holders.forEach(h => {
@@ -552,10 +559,10 @@
       const others = circulatingSupply - top100;
 
       const concentrationData = [
-        { label: 'Top 10', value: top10, color: '#a300ff' },
-        { label: '11 - 50', value: top50 - top10, color: '#00d4ff' },
-        { label: '51 - 100', value: top100 - top50, color: '#39ff14' },
-        { label: 'Others', value: Math.max(0, others), color: '#333' }
+        { label: 'Top 10', value: top10, color: '#f5a524' },
+        { label: '11 - 50', value: top50 - top10, color: '#c9d0da' },
+        { label: '51 - 100', value: top100 - top50, color: '#5b9bd5' },
+        { label: 'Others', value: Math.max(0, others), color: '#4a5160' }
       ];
 
       renderPieChart('wealthChart', wealthGroups.map(g => g.label), wealthGroups.map(g => g.total), wealthGroups.map(g => g.color), 'wealth-info', circulatingSupply);
@@ -577,7 +584,7 @@
             data: data,
             backgroundColor: colors,
             borderWidth: 2,
-            borderColor: isDark ? '#1a1a1a' : '#fff'
+            borderColor: isDark ? '#13161b' : '#fff'
           }]
         },
         options: {
@@ -919,11 +926,11 @@
 
       console.log(
         "%c S256 - Digital Platinum ",
-        "background: linear-gradient(135deg, #a300ff 0%, #00d4ff 100%); color: white; font-size: 20px; padding: 10px;",
+        "background: linear-gradient(100deg, #2a3038 0%, #6b7482 45%, #2a3038 100%); color: white; font-size: 20px; padding: 10px;",
       );
       console.log(
         "%c Double the Work, Double the Value ",
-        "color: #a300ff; font-size: 14px;",
+        "color: #a85f00; font-size: 14px;",
       );
 
       // Hamburger menu

@@ -64,7 +64,7 @@
       }
 
       .peers-table thead {
-        background: linear-gradient(135deg, var(--primary) 0%, #00d4ff 100%);
+        background: transparent;
         color: white;
       }
 
@@ -81,7 +81,7 @@
       }
 
       .peers-table tbody tr:hover {
-        background: rgba(163, 0, 255, 0.05);
+        background: rgba(245, 165, 36, 0.05);
       }
 
       .peers-table td {
@@ -114,12 +114,12 @@
       }
 
       .badge-inbound {
-        background: rgba(0, 212, 255, 0.2);
-        color: #00d4ff;
+        background: rgba(201, 208, 218, 0.2);
+        color: #c9d0da;
       }
 
       .badge-outbound {
-        background: rgba(163, 0, 255, 0.2);
+        background: rgba(245, 165, 36, 0.2);
         color: var(--primary);
       }
 
@@ -194,12 +194,18 @@
         }
       }
     </style>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="/theme.css?v=1" />
+    <script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("theme")||"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}</script>
   </head>
   <body>
     <nav class="navbar">
       <div class="container">
         <div class="nav-brand">
-          <span class="logo">S256</span>
+          <a href="/" class="brand-link"><img src="/static/images/s256_logo_200x200.png" alt="" class="brand-mark" width="34" height="34" /><span class="logo">S256</span></a>
           <span class="tagline">Block Explorer</span>
         </div>
         <button class="hamburger" id="hamburger" aria-label="Toggle menu">
@@ -214,6 +220,7 @@
           <a href="/nodemap.html" class="nav-link">Node Map</a>
           <a href="/holders.html" class="nav-link">Holders</a>
           <a href="/api.html" class="nav-link">API</a>
+          <a href="https://sha256coin.eu/mining" class="nav-link">Mining</a>
           <div class="nav-dropdown">
             <a href="#" class="nav-link dropdown-toggle">Tools ▼</a>
             <div class="dropdown-menu">
@@ -240,7 +247,7 @@
 
     <div class="peers-container">
       <div class="peers-header">
-        <h1>🌐 Network Peers</h1>
+        <h1><i class="fa-solid fa-globe" aria-hidden="true"></i> Network Peers</h1>
         <p style="color: var(--text-light)">
           Real-time view of connected S256 network nodes
         </p>
@@ -527,11 +534,11 @@
 
         console.log(
           "%c S256 - Digital Platinum ",
-          "background: linear-gradient(135deg, #a300ff 0%, #00d4ff 100%); color: white; font-size: 20px; padding: 10px;",
+          "background: linear-gradient(100deg, #2a3038 0%, #6b7482 45%, #2a3038 100%); color: white; font-size: 20px; padding: 10px;",
         );
         console.log(
           "%c Double the Work, Double the Value ",
-          "color: #a300ff; font-size: 14px;",
+          "color: #a85f00; font-size: 14px;",
         );
 
         // Hamburger menu
