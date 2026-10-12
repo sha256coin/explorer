@@ -421,7 +421,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css" />
-    <link rel="stylesheet" href="/theme.css?v=1" />
+    <link rel="stylesheet" href="/theme.css?v=2" />
     <script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("theme")||"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}</script>
   </head>
   <body>
@@ -478,18 +478,22 @@
       <div id="mempool-stats-section" style="display: none;">
         <div class="mempool-stats">
           <div class="mempool-stat-card">
+            <div class="stat-icon" aria-hidden="true"><i class="fa-solid fa-right-left"></i></div>
             <div class="mempool-stat-label">Transactions</div>
             <div class="mempool-stat-value" id="stat-count">-</div>
           </div>
           <div class="mempool-stat-card">
+            <div class="stat-icon" aria-hidden="true"><i class="fa-solid fa-hard-drive"></i></div>
             <div class="mempool-stat-label">Total Size</div>
             <div class="mempool-stat-value" id="stat-size">-</div>
           </div>
           <div class="mempool-stat-card">
+            <div class="stat-icon" aria-hidden="true"><i class="fa-solid fa-coins"></i></div>
             <div class="mempool-stat-label">Total Fees</div>
             <div class="mempool-stat-value" id="stat-fees">-</div>
           </div>
           <div class="mempool-stat-card">
+            <div class="stat-icon" aria-hidden="true"><i class="fa-solid fa-scale-balanced"></i></div>
             <div class="mempool-stat-label">Avg Fee</div>
             <div class="mempool-stat-value" id="stat-avg-fee">-</div>
           </div>

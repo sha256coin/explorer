@@ -687,3 +687,108 @@ tbody tr:active { transform: none; }
   .stats-grid .stat-label { font-size: 0.62rem; letter-spacing: 0.1em; }
   .stats-grid .stat-value { font-size: 1.1rem; }
 }
+
+/* ---------- page stat boxes (network, node map, holders, mempool):
+   same HUD panels as the home page ---------- */
+
+.stat-box,
+.mempool-stat-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.35rem;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1.5rem 1rem;
+  box-shadow: none;
+  transition: border-color 0.25s ease;
+}
+
+.stat-box:hover,
+.mempool-stat-card:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: rgba(245, 165, 36, 0.4);
+}
+
+.stat-box::before,
+.stat-box::after,
+.mempool-stat-card::before,
+.mempool-stat-card::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: var(--amber);
+  border-style: solid;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.stat-box::before,
+.mempool-stat-card::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+
+.stat-box::after,
+.mempool-stat-card::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+.stat-box .stat-icon,
+.mempool-stat-card .stat-icon {
+  order: 0;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 0.65rem;
+  font-size: 1.25rem;
+  color: var(--primary);
+  border: 1px solid rgba(245, 165, 36, 0.35);
+  border-radius: 8px;
+  background: var(--glow);
+}
+
+.stat-box-label,
+.mempool-stat-label {
+  order: 1;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-light);
+}
+
+.stat-box-value,
+.mempool-stat-value {
+  order: 2;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: clamp(1.2rem, 2.2vw, 1.7rem);
+  color: var(--text);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  text-shadow: 0 0 18px rgba(245, 165, 36, 0.18);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .peers-stats,
+  .map-stats,
+  .holders-stats,
+  .mempool-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.6rem !important;
+  }
+  .stat-box,
+  .mempool-stat-card { padding: 1rem 0.75rem; }
+  .stat-box .stat-icon,
+  .mempool-stat-card .stat-icon { width: 36px; height: 36px; font-size: 1rem; margin-bottom: 0.4rem; }
+  .stat-box-label,
+  .mempool-stat-label { font-size: 0.62rem; letter-spacing: 0.1em; }
+  .stat-box-value,
+  .mempool-stat-value { font-size: 1.05rem; }
+}
