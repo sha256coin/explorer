@@ -792,3 +792,269 @@ tbody tr:active { transform: none; }
   .stat-box-value,
   .mempool-stat-value { font-size: 1.05rem; }
 }
+
+
+/* ============================================
+   Footer: same as sha256coin.eu (ported from its styles.css + theme.css)
+   ============================================ */
+
+/* ─────────────────────────────────────────────────────────────
+   Footer  —  sha256coin.eu
+   ───────────────────────────────────────────────────────────── */
+
+.site-footer {
+  background: rgba(5, 5, 15, 0.97);
+  border-top: 3px solid;
+  border-image: linear-gradient(
+      90deg,
+      #002b7f 33.33%,
+      #fcd116 33.33% 66.66%,
+      #ce1126 66.66%
+    )
+    1;
+  padding: 3rem 0 0;
+}
+
+/* ── 4-column grid ── */
+.site-footer .footer-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  gap: 2rem 3rem;
+  padding-bottom: 2.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* ── Brand column ── */
+.site-footer .footer-brand {
+  display: flex;
+  flex-direction: column;
+}
+
+.site-footer .footer-brand .nav-brand-link {
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  text-decoration: none;
+  line-height: 1;
+}
+
+.site-footer .footer-tagline {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0.35rem 0 1.3rem;
+  font-weight: 600;
+}
+
+.site-footer .footer-email {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.65);
+  text-decoration: none;
+  width: fit-content;
+  transition: color 0.2s ease;
+}
+.site-footer .footer-email:hover {
+  color: rgba(119, 92, 216, 0.95);
+}
+
+/* ── Link columns ── */
+.site-footer .footer-col-title {
+  font-size: 1.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0 0 0.9rem;
+  font-weight: 600;
+}
+
+.site-footer .footer-col ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.site-footer .footer-col ul a {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.75);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: color 0.2s ease;
+}
+.site-footer .footer-col ul a:hover {
+  color: rgba(39, 43, 236, 0.95);
+}
+
+.site-footer .social-icon {
+  font-size: 0.9rem;
+  opacity: 0.8;
+  min-width: unset;
+}
+
+/* ── Network specs ── */
+.site-footer .network-specs {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.52rem;
+}
+
+.site-footer .network-specs > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.site-footer .network-specs dt {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 400;
+}
+
+.site-footer .network-specs dd {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.76);
+  font-family: "Courier New", Courier, monospace;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+/* ── Footer bottom bar ── */
+.site-footer .footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 0 1.4rem;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  border-top: none;
+}
+
+.site-footer .footer-copy {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0;
+}
+
+.site-footer .footer-origin {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.04em;
+}
+
+.site-footer .footer-bottom-links {
+  display: flex;
+  gap: 1.2rem;
+  align-items: center;
+}
+
+.site-footer .footer-bottom-links a {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.45);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.site-footer .footer-bottom-links a:hover {
+  color: rgba(39, 43, 236, 0.95);
+}
+
+.site-footer .footer-bottom {
+  padding: 0.8rem 0 1.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.site-footer .footer-bottom p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.site-footer .footer-bottom strong {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .site-footer .footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.8rem 2rem;
+  }
+  .site-footer .footer-brand {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .site-footer .footer-grid {
+    grid-template-columns: 1fr;
+  }
+  .site-footer .footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+}
+
+
+/* ---------- footer ---------- */
+
+.site-footer {
+  background: #08090b;
+  color: #c9d0da;
+}
+
+.site-footer .gradient-text {
+  background: linear-gradient(100deg, #f5f7fa 0%, #b8c0cb 34%, #f0f3f7 56%, #8f99a7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.site-footer .footer-tagline,
+.site-footer .footer-col-title,
+.site-footer .network-specs dt {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: #8d96a4;
+}
+
+.site-footer .footer-col ul a,
+.site-footer .footer-email,
+.site-footer .footer-bottom-links a { color: #c9d0da; }
+
+.site-footer .footer-col ul a:hover,
+.site-footer .footer-email:hover,
+.site-footer .footer-bottom-links a:hover { color: #ffbf55; }
+
+.site-footer .network-specs dd { font-family: var(--font-mono); color: #ffbf55; }
+
+.site-footer .footer-bottom { border-top: 1px solid rgba(214, 222, 235, 0.08); color: #8d96a4; }
+.site-footer .footer-bottom strong { color: #c9d0da; }
+
+
+.site-footer .footer-origin-link { color: #ffbf55; font-weight: 500; text-decoration: none; }
+.site-footer .footer-origin-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.site-footer { margin-top: 60px; font-family: var(--font-body); }
+.site-footer .container { max-width: 1320px; }
+.site-footer ul { list-style: none; }
+.site-footer a { text-decoration: none; }
+.site-footer .gradient-text {
+  background: linear-gradient(100deg, #f5f7fa 0%, #b8c0cb 34%, #f0f3f7 56%, #8f99a7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-family: var(--font-display);
+}

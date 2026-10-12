@@ -282,7 +282,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css" />
-    <link rel="stylesheet" href="/theme.css?v=2" />
+    <link rel="stylesheet" href="/theme.css?v=3" />
     <script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("theme")||"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}</script>
   </head>
   <body>
@@ -351,11 +351,119 @@
       <div id="pagination-container"></div>
     </div>
 
-    <footer class="footer">
-      <div class="container">
-        <p>&copy; <script>document.write(new Date().getFullYear())</script> S256 Block Explorer. Real-time transaction data.</p>
+  <footer class="site-footer">
+    <div class="container">
+
+      <div class="footer-grid">
+
+        <!-- Brand -->
+        <div class="footer-brand">
+          <a href="https://sha256coin.eu/" class="nav-brand-link">
+            <span class="gradient-text"><i class="fa-solid fa-coins"></i> S256</span>
+          </a>
+          <p class="footer-tagline">Digital Platinum</p>
+          <a href="mailto:info@sha256coin.eu" class="footer-email">
+            <i class="fa-regular fa-envelope"></i> info@sha256coin.eu
+          </a>
+          <a href="mailto:contact@sha256coin.eu" class="footer-email">
+            <i class="fa-solid fa-envelope-open-text"></i> contact@sha256coin.eu
+          </a>
+        </div>
+
+        <!-- Resources -->
+        <div class="footer-col">
+          <h4 class="footer-col-title"><i class="fa-solid fa-layer-group"></i> Resources</h4>
+          <ul>
+            <li><a href="https://sha256coin.eu/whitepaper.html" target="_blank"><i class="fa-regular fa-file-lines"></i> Technical Paper</a>
+            </li>
+            <li><a href="https://sha256coin.eu/"><i class="fa-solid fa-globe"></i> Main Website</a>
+            </li>
+            <li><a href="https://sha256coin.eu/mining"><i class="fa-solid fa-server"></i> Mining</a>
+            </li>
+            <li><a href="https://github.com/sha256coin"><i class="fa-brands fa-github"></i> GitHub</a></li>
+            <li><a href="https://github.com/bitcoin/bitcoin"><i class="fa-brands fa-bitcoin"></i> Documentation</a></li>
+          </ul>
+        </div>
+
+        <!-- Community -->
+        <div class="footer-col">
+          <h4 class="footer-col-title"><i class="fa-solid fa-users"></i> Community</h4>
+          <ul>
+            <li>
+              <a href="https://discord.gg/dtn58HrC94" target="_blank" rel="noopener">
+                <i class="fa-brands fa-discord"></i> Discord
+              </a>
+            </li>
+            <li>
+              <a href="https://t.me/s256coin" target="_blank" rel="noopener">
+                <i class="fa-brands fa-telegram"></i> Telegram
+              </a>
+            </li>
+            <li>
+              <a href="https://bitcointalk.org/index.php?topic=5567429.msg66131557#msg66131557" target="_blank"
+                rel="noopener">
+                <i class="fa-brands fa-bitcoin"></i> Bitcointalk
+              </a>
+            </li>
+            <li>
+              <a href="https://x.com/s256coin" target="_blank" rel="noopener">
+                <i class="fa-brands fa-x-twitter"></i> Twitter / X
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Network Info -->
+        <div class="footer-col">
+          <h4 class="footer-col-title"><i class="fa-solid fa-network-wired"></i> Network</h4>
+          <dl class="network-specs">
+            <div>
+              <dt><i class="fa-solid fa-door-open"></i> Port</dt>
+              <dd>25256</dd>
+            </div>
+            <div>
+              <dt><i class="fa-solid fa-terminal"></i> RPC</dt>
+              <dd>25332</dd>
+            </div>
+            <div>
+              <dt><i class="fa-solid fa-gears"></i> Algorithm</dt>
+              <dd>SHA-256</dd>
+            </div>
+            <div>
+              <dt><i class="fa-solid fa-cube"></i> Genesis</dt>
+              <dd>Nov 30, 2025</dd>
+            </div>
+          </dl>
+        </div>
+
+      </div><!-- /.footer-grid -->
+
+      <div class="footer-bottom">
+        <p class="footer-copy">
+          &copy; <span id="current-year">2026</span><script>document.getElementById("current-year").textContent=new Date().getFullYear()</script> S256 &mdash; Open source cryptocurrency.
+        </p>
+        <span class="footer-origin">
+          <i class="fa-solid fa-bolt"></i> Hosted in <a href="https://www.discover-romania.site/" target="_blank" rel="noopener" class="footer-origin-link"><i class="fa-solid fa-location-dot"></i> Romania 🇷🇴</a>
+        </span>
+        <div class="footer-bottom-links">
+          <a href="https://sha256coin.eu/privacy"><i class="fa-solid fa-shield-halved fa-xs"></i> Privacy</a>
+          <a href="https://sha256coin.eu/terms"><i class="fa-solid fa-file-contract fa-xs"></i> Terms</a>
+          <a href="https://sha256coin.eu/risk-disclosure"><i class="fa-solid fa-triangle-exclamation fa-xs"></i> Risk Disclosure</a>
+        </div>
       </div>
-    </footer>
+
+      <div class="footer-bottom">
+        <p><strong>Disclaimer:</strong> <em>S256 (SHA256Coin) is a fully decentralized, open-source
+            cryptocurrency based on the Proof-of-Work algorithm. There is no corporate entity, no pre-sale,
+            no pre-mine, and no developer allocation. This website is for technical and informational
+            purposes only. The software is provided "as is", without warranty of any kind. Users are solely
+            responsible for securing their private keys and seed phrases and for complying with applicable
+            local laws and tax regulations. S256 does not constitute a crypto-asset service under EU
+            Regulation 2023/1114 (MiCA).</em></p>
+      </div>
+
+    </div><!-- /.container -->
+  </footer>
 
     <!-- Matrix Terminal Easter Egg -->
     <div class="matrix-terminal" id="matrix-terminal">
