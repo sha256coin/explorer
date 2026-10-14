@@ -57,5 +57,6 @@ transactionSchema.index({ blockheight: -1 });
 transactionSchema.index({ time: -1 });
 transactionSchema.index({ 'vout.scriptPubKey.address': 1 });
 transactionSchema.index({ 'vin.prevout.scriptPubKey.address': 1 });
+transactionSchema.index({ 'vin.txid': 1 });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

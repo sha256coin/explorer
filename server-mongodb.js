@@ -714,6 +714,324 @@ app.get("/api/mempool", async (req, res) => {
   }
 });
 
+// Address results are cached briefly so repeated polling of one address
+// (wallets, mining dashboards) does not redo the lookups on every request.
+const ADDRESS_CACHE_TTL = 15 * 1000;
+const ADDRESS_CACHE_MAX = 200;
+const addressCache = new Map(); // address -> {timestamp, promise}
+
+function getAddressData(address) {
+  const now = Date.now();
+  const cached = addressCache.get(address);
+  if (cached && now - cached.timestamp < ADDRESS_CACHE_TTL) {
+    return cached.promise;
+  }
+
+  const promise = buildAddressData(address);
+  addressCache.delete(address);
+  addressCache.set(address, { timestamp: now, promise });
+  promise.catch(() => addressCache.delete(address));
+
+  // Evict the oldest entries
+  while (addressCache.size > ADDRESS_CACHE_MAX) {
+    addressCache.delete(addressCache.keys().next().value);
+  }
+  return promise;
+}
+
+async function buildAddressData(address) {
+  // Step 1: Find all transactions where address received coins (in outputs)
+  const receivingTxs = await Transaction.find({
+    "vout.scriptPubKey.address": address,
+  })
+    .select("txid vout blockheight isOrphan vin.coinbase")
+    .lean();
+
+  // Build a set of output references that belong to this address
+  const addressOutputs = new Set();
+  receivingTxs.forEach((tx) => {
+    tx.vout.forEach((output, index) => {
+      if (output.scriptPubKey && output.scriptPubKey.address === address) {
+        addressOutputs.add(`${tx.txid}:${index}`);
+      }
+    });
+  });
+
+  // Step 2: Find transactions that spend from this address
+  // (transactions that have inputs referencing our address's outputs)
+  const spendingTxIds = new Set();
+  const spentOutputs = new Set(); // txid:vout spent by non-orphan txs
+  if (addressOutputs.size > 0) {
+    // Get list of unique txids that have outputs belonging to this address
+    const receivingTxIds = Array.from(
+      new Set(receivingTxs.map((tx) => tx.txid)),
+    );
+
+    // Find all transactions that have inputs spending these outputs
+    const allTxsWithInputs = await Transaction.find({
+      "vin.txid": { $in: receivingTxIds },
+    })
+      .select("txid vin isOrphan")
+      .lean();
+
+    console.log(
+      `Address ${address}: Found ${allTxsWithInputs.length} transactions with inputs referencing ${receivingTxIds.length} receiving txs, checking ${addressOutputs.size} address outputs`,
+    );
+
+    let matchedInputs = 0;
+    allTxsWithInputs.forEach((tx) => {
+      tx.vin.forEach((input) => {
+        if (!input.coinbase && input.txid && input.vout !== undefined) {
+          const outputRef = `${input.txid}:${input.vout}`;
+          if (addressOutputs.has(outputRef)) {
+            spendingTxIds.add(tx.txid);
+            matchedInputs++;
+          }
+          if (tx.isOrphan === false) {
+            spentOutputs.add(outputRef);
+          }
+        }
+      });
+    });
+
+    console.log(
+      `Address ${address}: Matched ${matchedInputs} inputs spending address outputs, found ${spendingTxIds.size} spending transactions`,
+    );
+  }
+
+  // Step 3: Get full transaction details for all involved transactions
+  const allTxIds = new Set([
+    ...receivingTxs.map((tx) => tx.txid),
+    ...Array.from(spendingTxIds),
+  ]);
+
+  const transactions = await Transaction.find({
+    txid: { $in: Array.from(allTxIds) },
+  })
+    .sort({ blockheight: -1 })
+    .lean();
+
+  console.log(
+    `Address ${address}: Found ${receivingTxs.length} receiving txs, ${spendingTxIds.size} spending txs, ${transactions.length} total`,
+  );
+
+  // Get current block height for coinbase maturity check
+  const latestBlock = await Block.findOne().sort({ height: -1 });
+  const currentHeight = latestBlock ? latestBlock.height : 0;
+  const COINBASE_MATURITY = 200; // S256 coin maturity requirement
+
+  // Get block times for transactions missing time field
+  const blockHeights = [
+    ...new Set(
+      transactions.map((tx) => tx.blockheight).filter((h) => h !== undefined),
+    ),
+  ];
+  const blocks = await Block.find({ height: { $in: blockHeights } })
+    .select("height time")
+    .lean();
+  const blockTimeMap = new Map(blocks.map((b) => [b.height, b.time]));
+
+  // Calculate balance using UTXO method for consistency with holders page.
+  // Only this address's receiving txs (step 1) and the non-orphan txs
+  // spending them (step 2) matter, so the whole collection is not loaded.
+  const addressTxs = receivingTxs.filter((tx) => tx.isOrphan === false);
+
+  // Unspent outputs to this address (excluding immature coinbase)
+  let balance = 0;
+  let immatureBalance = 0;
+  for (const tx of addressTxs) {
+    // Check if it's a coinbase transaction
+    const isCoinbase = tx.vin && tx.vin.length > 0 && tx.vin[0].coinbase;
+
+    // Calculate confirmations (only if we have blockheight)
+    const confirmations =
+      tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
+
+    // Skip immature coinbase outputs (need MORE than maturity confirmations)
+    if (isCoinbase && confirmations <= COINBASE_MATURITY) {
+      continue;
+    }
+
+    for (const vout of tx.vout) {
+      if (
+        vout.scriptPubKey &&
+        vout.scriptPubKey.address === address &&
+        !spentOutputs.has(`${tx.txid}:${vout.n}`)
+      ) {
+        balance += vout.value;
+      }
+    }
+  }
+
+  // Calculate immature coinbase balance separately
+  for (const tx of addressTxs) {
+    const isCoinbase = tx.vin && tx.vin.length > 0 && tx.vin[0].coinbase;
+    const confirmations =
+      tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
+
+    if (
+      isCoinbase &&
+      confirmations > 0 &&
+      confirmations <= COINBASE_MATURITY
+    ) {
+      for (const vout of tx.vout) {
+        if (vout.scriptPubKey.address === address) {
+          immatureBalance += vout.value;
+        }
+      }
+    }
+  }
+
+  // Collect all unique input txids that need prevout lookup
+  const inputTxids = new Set();
+  transactions.forEach((tx) => {
+    if (tx.vin) {
+      tx.vin.forEach((input) => {
+        if (!input.coinbase && !input.prevout && input.txid) {
+          inputTxids.add(input.txid);
+        }
+      });
+    }
+  });
+
+  // Batch fetch all needed previous transactions
+  const prevTxMap = new Map();
+  if (inputTxids.size > 0) {
+    const prevTxs = await Transaction.find({
+      txid: { $in: Array.from(inputTxids) },
+    })
+      .select("txid vout")
+      .lean();
+
+    prevTxs.forEach((tx) => {
+      prevTxMap.set(tx.txid, tx);
+    });
+  }
+
+  // Enrich transactions with block time, prevout data, and calculate amounts for this address
+  const enrichedTransactions = transactions.map((tx) => {
+    // Add block time if missing
+    let enrichedTx = { ...tx };
+    if (!tx.time && !tx.blocktime) {
+      const blockTime = blockTimeMap.get(tx.blockheight);
+      enrichedTx.time = blockTime;
+      enrichedTx.blocktime = blockTime;
+    }
+
+    // Calculate confirmations dynamically
+    if (currentHeight && tx.blockheight !== undefined) {
+      enrichedTx.confirmations = currentHeight - tx.blockheight + 1;
+    }
+
+    // Calculate amounts for this specific address
+    let receivedAmount = 0;
+    let sentAmount = 0;
+
+    // Sum outputs to this address (received)
+    if (enrichedTx.vout) {
+      enrichedTx.vout.forEach((output) => {
+        if (output.scriptPubKey && output.scriptPubKey.address === address) {
+          receivedAmount += parseFloat(output.value);
+        }
+      });
+    }
+
+    // Sum inputs from this address (sent)
+    if (enrichedTx.vin && enrichedTx.vin.length > 0) {
+      enrichedTx.vin.forEach((input) => {
+        // Skip coinbase inputs
+        if (input.coinbase) {
+          return;
+        }
+
+        // First check if prevout is already stored in the transaction (from sync)
+        if (input.prevout && input.prevout.scriptPubKey) {
+          if (input.prevout.scriptPubKey.address === address) {
+            sentAmount += parseFloat(input.prevout.value);
+          }
+          return;
+        }
+
+        // Fall back to looking up the previous transaction output
+        if (input.txid && input.vout !== undefined) {
+          const prevTx = prevTxMap.get(input.txid);
+          if (prevTx && prevTx.vout && prevTx.vout[input.vout]) {
+            const prevOut = prevTx.vout[input.vout];
+
+            // Check if this input came from our address
+            if (
+              prevOut.scriptPubKey &&
+              prevOut.scriptPubKey.address === address
+            ) {
+              sentAmount += parseFloat(prevOut.value);
+            }
+          }
+        }
+      });
+    }
+
+    // Calculate net amount and direction
+    const netAmount =
+      sentAmount > 0 ? -(sentAmount - receivedAmount) : receivedAmount;
+    const direction = sentAmount > 0 ? "out" : "in";
+
+    // Add calculated data to transaction
+    enrichedTx.addressAmount = {
+      received: receivedAmount,
+      sent: sentAmount,
+      net: netAmount,
+      direction: direction,
+    };
+
+    return enrichedTx;
+  });
+
+  const outgoingCount = enrichedTransactions.filter(
+    (tx) => tx.addressAmount.direction === "out",
+  ).length;
+  console.log(
+    `Address ${address}: enriched ${transactions.length} transactions, ${outgoingCount} outgoing, fetched ${prevTxMap.size} previous txs`,
+  );
+
+  // Calculate received and sent from NET transaction amounts (matches what users see in transaction list)
+  // Important: Exclude immature coinbase transactions (need > 200 confirmations)
+  let received = 0;
+  let sent = 0;
+
+  enrichedTransactions.forEach((tx) => {
+    if (tx.addressAmount) {
+      // Check if this is a coinbase transaction
+      const isCoinbase = tx.vin && tx.vin.length > 0 && tx.vin[0].coinbase;
+
+      // Calculate confirmations
+      const confirmations =
+        tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
+
+      // Skip immature coinbase transactions
+      if (isCoinbase && confirmations <= COINBASE_MATURITY) {
+        return;
+      }
+
+      const netAmount = tx.addressAmount.net;
+      if (netAmount > 0) {
+        // Positive net = received
+        received += netAmount;
+      } else if (netAmount < 0) {
+        // Negative net = sent
+        sent += Math.abs(netAmount);
+      }
+    }
+  });
+
+  return {
+    balance,
+    immatureBalance,
+    received,
+    sent,
+    transactions: enrichedTransactions,
+  };
+}
+
 // Get address info (balance and transactions)
 app.get("/api/address/:address/txs", async (req, res) => {
   try {
@@ -727,318 +1045,16 @@ app.get("/api/address/:address/txs", async (req, res) => {
       ? Math.min(Math.max(requestedLimit, 1), MAX_ADDRESS_TX_LIMIT)
       : 10;
 
-    // Step 1: Find all transactions where address received coins (in outputs)
-    const receivingTxs = await Transaction.find({
-      "vout.scriptPubKey.address": address,
-    })
-      .select("txid vout")
-      .lean();
-
-    // Build a set of output references that belong to this address
-    const addressOutputs = new Set();
-    receivingTxs.forEach((tx) => {
-      tx.vout.forEach((output, index) => {
-        if (output.scriptPubKey && output.scriptPubKey.address === address) {
-          addressOutputs.add(`${tx.txid}:${index}`);
-        }
-      });
-    });
-
-    // Step 2: Find transactions that spend from this address
-    // (transactions that have inputs referencing our address's outputs)
-    const spendingTxIds = new Set();
-    if (addressOutputs.size > 0) {
-      // Get list of unique txids that have outputs belonging to this address
-      const receivingTxIds = Array.from(
-        new Set(receivingTxs.map((tx) => tx.txid)),
-      );
-
-      // Find all transactions that have inputs spending these outputs
-      const allTxsWithInputs = await Transaction.find({
-        "vin.txid": { $in: receivingTxIds },
-      })
-        .select("txid vin")
-        .lean();
-
-      console.log(
-        `Address ${address}: Found ${allTxsWithInputs.length} transactions with inputs referencing ${receivingTxIds.length} receiving txs, checking ${addressOutputs.size} address outputs`,
-      );
-
-      let matchedInputs = 0;
-      allTxsWithInputs.forEach((tx) => {
-        tx.vin.forEach((input) => {
-          if (!input.coinbase && input.txid && input.vout !== undefined) {
-            const outputRef = `${input.txid}:${input.vout}`;
-            if (addressOutputs.has(outputRef)) {
-              spendingTxIds.add(tx.txid);
-              matchedInputs++;
-            }
-          }
-        });
-      });
-
-      console.log(
-        `Address ${address}: Matched ${matchedInputs} inputs spending address outputs, found ${spendingTxIds.size} spending transactions`,
-      );
-    }
-
-    // Step 3: Get full transaction details for all involved transactions
-    const allTxIds = new Set([
-      ...receivingTxs.map((tx) => tx.txid),
-      ...Array.from(spendingTxIds),
-    ]);
-
-    const transactions = await Transaction.find({
-      txid: { $in: Array.from(allTxIds) },
-    })
-      .sort({ blockheight: -1 })
-      .lean();
-
-    console.log(
-      `Address ${address}: Found ${receivingTxs.length} receiving txs, ${spendingTxIds.size} spending txs, ${transactions.length} total`,
-    );
-
-    // Get current block height for coinbase maturity check
-    const latestBlock = await Block.findOne().sort({ height: -1 });
-    const currentHeight = latestBlock ? latestBlock.height : 0;
-    const COINBASE_MATURITY = 200; // S256 coin maturity requirement
-
-    // Get block times for transactions missing time field
-    const blockHeights = [
-      ...new Set(
-        transactions.map((tx) => tx.blockheight).filter((h) => h !== undefined),
-      ),
-    ];
-    const blocks = await Block.find({ height: { $in: blockHeights } })
-      .select("height time")
-      .lean();
-    const blockTimeMap = new Map(blocks.map((b) => [b.height, b.time]));
-
-    // Calculate balance using UTXO method for consistency with holders page
-    const utxos = new Map(); // Map of txid:vout -> {value, txid, vout}
-
-    // Get all transactions to build complete UTXO set for this address
-    const allTxs = await Transaction.find({ isOrphan: false }).lean();
-
-    // First pass: Find all outputs to this address (excluding immature coinbase)
-    for (const tx of allTxs) {
-      // Check if it's a coinbase transaction
-      const isCoinbase = tx.vin && tx.vin.length > 0 && tx.vin[0].coinbase;
-
-      // Calculate confirmations (only if we have blockheight)
-      const confirmations =
-        tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
-
-      // Skip immature coinbase outputs (need MORE than maturity confirmations)
-      if (isCoinbase && confirmations <= COINBASE_MATURITY) {
-        continue;
-      }
-
-      for (const vout of tx.vout) {
-        if (vout.scriptPubKey.address === address) {
-          const utxoKey = `${tx.txid}:${vout.n}`;
-          utxos.set(utxoKey, {
-            value: vout.value,
-            txid: tx.txid,
-            vout: vout.n,
-          });
-        }
-      }
-    }
-
-    // Second pass: Remove spent outputs by checking all transaction inputs
-    for (const tx of allTxs) {
-      for (const vin of tx.vin) {
-        if (!vin.coinbase && vin.txid && vin.vout !== undefined) {
-          const utxoKey = `${vin.txid}:${vin.vout}`;
-          // Check if this input spends any UTXO belonging to this address
-          if (utxos.has(utxoKey)) {
-            utxos.delete(utxoKey);
-          }
-        }
-      }
-    }
-
-    // Calculate balance from unspent outputs only
-    let balance = 0;
-    let immatureBalance = 0;
-    for (const utxo of utxos.values()) {
-      balance += utxo.value;
-    }
-
-    // Calculate immature coinbase balance separately
-    for (const tx of allTxs) {
-      const isCoinbase = tx.vin && tx.vin.length > 0 && tx.vin[0].coinbase;
-      const confirmations =
-        tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
-
-      if (
-        isCoinbase &&
-        confirmations > 0 &&
-        confirmations <= COINBASE_MATURITY
-      ) {
-        for (const vout of tx.vout) {
-          if (vout.scriptPubKey.address === address) {
-            immatureBalance += vout.value;
-          }
-        }
-      }
-    }
-
-    // Collect all unique input txids that need prevout lookup
-    const inputTxids = new Set();
-    transactions.forEach((tx) => {
-      if (tx.vin) {
-        tx.vin.forEach((input) => {
-          if (!input.coinbase && !input.prevout && input.txid) {
-            inputTxids.add(input.txid);
-          }
-        });
-      }
-    });
-
-    // Batch fetch all needed previous transactions
-    const prevTxMap = new Map();
-    if (inputTxids.size > 0) {
-      const prevTxs = await Transaction.find({
-        txid: { $in: Array.from(inputTxids) },
-      })
-        .select("txid vout")
-        .lean();
-
-      prevTxs.forEach((tx) => {
-        prevTxMap.set(tx.txid, tx);
-      });
-    }
-
-    // Enrich transactions with block time, prevout data, and calculate amounts for this address
-    const enrichedTransactions = transactions.map((tx) => {
-      // Add block time if missing
-      let enrichedTx = { ...tx };
-      if (!tx.time && !tx.blocktime) {
-        const blockTime = blockTimeMap.get(tx.blockheight);
-        enrichedTx.time = blockTime;
-        enrichedTx.blocktime = blockTime;
-      }
-
-      // Calculate confirmations dynamically
-      if (currentHeight && tx.blockheight !== undefined) {
-        enrichedTx.confirmations = currentHeight - tx.blockheight + 1;
-      }
-
-      // Calculate amounts for this specific address
-      let receivedAmount = 0;
-      let sentAmount = 0;
-
-      // Sum outputs to this address (received)
-      if (enrichedTx.vout) {
-        enrichedTx.vout.forEach((output) => {
-          if (output.scriptPubKey && output.scriptPubKey.address === address) {
-            receivedAmount += parseFloat(output.value);
-          }
-        });
-      }
-
-      // Sum inputs from this address (sent)
-      if (enrichedTx.vin && enrichedTx.vin.length > 0) {
-        enrichedTx.vin.forEach((input) => {
-          // Skip coinbase inputs
-          if (input.coinbase) {
-            return;
-          }
-
-          // First check if prevout is already stored in the transaction (from sync)
-          if (input.prevout && input.prevout.scriptPubKey) {
-            if (input.prevout.scriptPubKey.address === address) {
-              sentAmount += parseFloat(input.prevout.value);
-            }
-            return;
-          }
-
-          // Fall back to looking up the previous transaction output
-          if (input.txid && input.vout !== undefined) {
-            const prevTx = prevTxMap.get(input.txid);
-            if (prevTx && prevTx.vout && prevTx.vout[input.vout]) {
-              const prevOut = prevTx.vout[input.vout];
-
-              // Check if this input came from our address
-              if (
-                prevOut.scriptPubKey &&
-                prevOut.scriptPubKey.address === address
-              ) {
-                sentAmount += parseFloat(prevOut.value);
-              }
-            }
-          }
-        });
-      }
-
-      // Calculate net amount and direction
-      const netAmount =
-        sentAmount > 0 ? -(sentAmount - receivedAmount) : receivedAmount;
-      const direction = sentAmount > 0 ? "out" : "in";
-
-      // Add calculated data to transaction
-      enrichedTx.addressAmount = {
-        received: receivedAmount,
-        sent: sentAmount,
-        net: netAmount,
-        direction: direction,
-      };
-
-      return enrichedTx;
-    });
-
-    const outgoingCount = enrichedTransactions.filter(
-      (tx) => tx.addressAmount.direction === "out",
-    ).length;
-    console.log(
-      `Address ${address}: enriched ${transactions.length} transactions, ${outgoingCount} outgoing, fetched ${prevTxMap.size} previous txs`,
-    );
-
-    // Calculate received and sent from NET transaction amounts (matches what users see in transaction list)
-    // Important: Exclude immature coinbase transactions (need > 200 confirmations)
-    let received = 0;
-    let sent = 0;
-
-    enrichedTransactions.forEach((tx) => {
-      if (tx.addressAmount) {
-        // Check if this is a coinbase transaction
-        const isCoinbase = tx.vin && tx.vin.length > 0 && tx.vin[0].coinbase;
-
-        // Calculate confirmations
-        const confirmations =
-          tx.blockheight !== undefined ? currentHeight - tx.blockheight + 1 : 0;
-
-        // Skip immature coinbase transactions
-        if (isCoinbase && confirmations <= COINBASE_MATURITY) {
-          return;
-        }
-
-        const netAmount = tx.addressAmount.net;
-        if (netAmount > 0) {
-          // Positive net = received
-          received += netAmount;
-        } else if (netAmount < 0) {
-          // Negative net = sent
-          sent += Math.abs(netAmount);
-        }
-      }
-    });
-
-    const paginatedTransactions = enrichedTransactions.slice(
-      offset,
-      offset + limit,
-    );
+    const data = await getAddressData(address);
 
     res.json({
       address,
-      balance,
-      immatureBalance,
-      received,
-      sent,
-      txCount: transactions.length,
-      transactions: paginatedTransactions,
+      balance: data.balance,
+      immatureBalance: data.immatureBalance,
+      received: data.received,
+      sent: data.sent,
+      txCount: data.transactions.length,
+      transactions: data.transactions.slice(offset, offset + limit),
     });
   } catch (error) {
     console.error("Error getting address info:", error);
@@ -1257,19 +1273,29 @@ async function calculateHolders() {
     const currentHeight = latestBlock ? latestBlock.height : 0;
     const COINBASE_MATURITY = 200; // S256 coin maturity requirement
 
-    // Get all transactions to calculate balances using UTXO method
-    // Optimization: only get necessary fields
-    const transactions = await Transaction.find(
+    // Stream all transactions to calculate balances using UTXO method.
+    // Only the necessary fields, one document at a time, so the whole
+    // collection is never held in memory.
+    const cursor = Transaction.find(
       { isOrphan: false },
-      "txid blockheight vin vout",
-    ).lean();
+      "txid blockheight vin.coinbase vin.txid vin.vout vout.n vout.value vout.scriptPubKey.address",
+    )
+      .lean()
+      .cursor();
 
     // Build UTXO set
     const utxos = {}; // Map of txid:vout -> {address, value}
+    const spent = new Set(); // txid:vout spent by any input
     const txCounts = {}; // Map of address -> unique txid set
 
-    // First pass: Create all outputs (excluding immature coinbase)
-    for (const tx of transactions) {
+    // Create all outputs (excluding immature coinbase) and collect spends
+    for await (const tx of cursor) {
+      for (const vin of tx.vin) {
+        if (!vin.coinbase && vin.txid && vin.vout !== undefined) {
+          spent.add(`${vin.txid}:${vin.vout}`);
+        }
+      }
+
       // Check if it's a coinbase transaction
       const isCoinbase = tx.vin && tx.vin.length > 0 && tx.vin[0].coinbase;
 
@@ -1299,14 +1325,9 @@ async function calculateHolders() {
       }
     }
 
-    // Second pass: Mark spent outputs
-    for (const tx of transactions) {
-      for (const vin of tx.vin) {
-        if (!vin.coinbase && vin.txid && vin.vout !== undefined) {
-          const utxoKey = `${vin.txid}:${vin.vout}`;
-          delete utxos[utxoKey];
-        }
-      }
+    // Remove spent outputs
+    for (const utxoKey of spent) {
+      delete utxos[utxoKey];
     }
 
     // Calculate balances from unspent outputs
