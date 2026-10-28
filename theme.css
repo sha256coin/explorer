@@ -316,6 +316,39 @@ a { color: var(--primary); }
   box-shadow: 0 0 0 4px var(--glow);
 }
 
+/* ---------- Network health banner ---------- */
+
+.network-health {
+  --health-color: #b45309;
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--line-strong);
+  border-left: 4px solid var(--health-color);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.network-health.level-warning { --health-color: #c62828; }
+
+[data-theme="dark"] .network-health { --health-color: var(--amber); }
+[data-theme="dark"] .network-health.level-warning { --health-color: #ef5350; }
+
+.network-health p { margin: 0; }
+.network-health p + p { margin-top: 0.4rem; }
+
+.network-health a {
+  color: var(--primary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.network-health i {
+  color: var(--health-color);
+  margin-right: 0.5rem;
+}
+
 /* ---------- HUD stat panels ---------- */
 
 .stats-grid { gap: 1rem; }

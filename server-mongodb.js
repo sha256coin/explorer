@@ -1472,6 +1472,127 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
+// Network health: warnings shown in the banner on the home page.
+// One miner holding most of the hashrate can reorg the chain, so the banner
+// tells users and exchanges when to wait for extra confirmations.
+const TARGET_SPACING = 20 * 60; // nPowTargetSpacing
+const HEALTH_WINDOW = 96; // LWMA window
+const HEALTH_STALL_SECONDS = 6 * TARGET_SPACING; // LWMA's solve-time cap
+const HEALTH_MINER_SHARE = 0.5;
+const HEALTH_REORG_DEPTH = 2;
+const HEALTH_REORG_HOURS = 24;
+const MIN_PEER_VERSION = 70101; // 3.0.1
+const healthCache = { data: null, timestamp: 0 };
+
+async function computeNetworkHealth() {
+  const now = Math.floor(Date.now() / 1000);
+  const warnings = [];
+
+  const blocks = await Block.find({ isOrphan: false })
+    .sort({ height: -1 })
+    .limit(HEALTH_WINDOW)
+    .select("height time tx")
+    .lean();
+  const tip = blocks[0];
+
+  // 1. No new block for a long time: the pool may be mining in private.
+  const blockAge = tip ? now - tip.time : null;
+  if (blockAge !== null && blockAge > HEALTH_STALL_SECONDS) {
+    warnings.push({
+      type: "stall",
+      level: "warning",
+      message: `No new block for ${Math.floor(blockAge / 3600)}h ${Math.floor((blockAge % 3600) / 60)}m. Wait for extra confirmations before accepting payments.`,
+    });
+  }
+
+  // 2. Recent reorgs. sync.js marks replaced blocks as orphans; blocks marked
+  // within one minute of each other count as one reorg.
+  const since = new Date(Date.now() - HEALTH_REORG_HOURS * 3600 * 1000);
+  const orphans = await Block.find({ isOrphan: true, updatedAt: { $gte: since } })
+    .sort({ updatedAt: 1 })
+    .select("height updatedAt")
+    .lean();
+  const reorgs = [];
+  for (const o of orphans) {
+    const last = reorgs[reorgs.length - 1];
+    if (last && o.updatedAt - last.time < 60 * 1000) {
+      last.depth++;
+      last.fromHeight = Math.min(last.fromHeight, o.height);
+    } else {
+      reorgs.push({ time: o.updatedAt, depth: 1, fromHeight: o.height });
+    }
+  }
+  const deepest = reorgs.reduce((m, r) => (r.depth > m.depth ? r : m), { depth: 0 });
+  if (deepest.depth >= HEALTH_REORG_DEPTH) {
+    warnings.push({
+      type: "reorg",
+      level: "warning",
+      message: `A ${deepest.depth}-block reorg replaced blocks from height ${deepest.fromHeight} in the last ${HEALTH_REORG_HOURS} hours. Check your recent payments and wait for extra confirmations.`,
+    });
+  }
+
+  // 3. One miner finding most blocks in the LWMA window (by first coinbase
+  // output address).
+  const coinbaseIds = blocks.map((b) => b.tx && b.tx[0]).filter(Boolean);
+  const coinbases = await Transaction.find({ txid: { $in: coinbaseIds } })
+    .select("vout.scriptPubKey.address")
+    .lean();
+  const counts = {};
+  for (const tx of coinbases) {
+    const out = (tx.vout || []).find((v) => v.scriptPubKey && v.scriptPubKey.address);
+    if (out) counts[out.scriptPubKey.address] = (counts[out.scriptPubKey.address] || 0) + 1;
+  }
+  let topMiner = null;
+  for (const [address, count] of Object.entries(counts)) {
+    if (!topMiner || count > topMiner.blocks) topMiner = { address, blocks: count };
+  }
+  if (topMiner && topMiner.blocks / blocks.length > HEALTH_MINER_SHARE) {
+    warnings.push({
+      type: "miner",
+      level: "notice",
+      message: `One miner found ${topMiner.blocks} of the last ${blocks.length} blocks. Exchanges and merchants should wait for extra confirmations. Help keep S256 decentralized: mine on a different pool or run your own.`,
+      link: { text: "Mining pools", url: "https://sha256coin.eu/mining.html" },
+    });
+  }
+
+  // 4. Peers on versions older than 3.0.1 are on the pre-fork chain.
+  let oldPeers = null;
+  try {
+    const peers = await rpcCall("getpeerinfo");
+    oldPeers = peers.filter((p) => p.version < MIN_PEER_VERSION).length;
+  } catch (error) {
+    // The other checks still work without the node.
+  }
+
+  return {
+    height: tip ? tip.height : null,
+    blockAge,
+    window: blocks.length,
+    // Block count and share only; the API doesn't publish the address.
+    topMiner: topMiner && {
+      blocks: topMiner.blocks,
+      share: Math.round((topMiner.blocks / blocks.length) * 1000) / 10,
+    },
+    reorgs,
+    oldPeers,
+    warnings,
+    updated: now,
+  };
+}
+
+app.get("/api/network-health", async (req, res) => {
+  try {
+    if (!healthCache.data || Date.now() - healthCache.timestamp > 60 * 1000) {
+      healthCache.data = await computeNetworkHealth();
+      healthCache.timestamp = Date.now();
+    }
+    res.json(healthCache.data);
+  } catch (error) {
+    console.error("Error getting network health:", error);
+    res.status(500).json({ error: "Network health unavailable" });
+  }
+});
+
 // ========================================
 // MiningPoolStats Compatible API Endpoints
 // ========================================

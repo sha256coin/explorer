@@ -128,6 +128,7 @@ function displayTerminalContent(text) {
 document.addEventListener("DOMContentLoaded", () => {
   initTheme();
   loadBlockchainInfo();
+  loadNetworkHealth();
 
   // Hamburger menu
   const hamburger = document.getElementById("hamburger");
@@ -212,6 +213,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Auto-refresh every 30 seconds (only refresh blocks if on page 1)
   setInterval(() => {
     loadBlockchainInfo();
+    loadNetworkHealth();
     if (
       !document.getElementById("search-results").style.display ||
       document.getElementById("search-results").style.display === "none"
@@ -267,6 +269,35 @@ async function loadBlockchainInfo() {
     document.getElementById("difficulty").textContent = "Error";
     document.getElementById("hashrate").textContent = "Error";
     document.getElementById("connections").textContent = "Error";
+  }
+}
+
+// Load network health warnings (stalls, reorgs, one dominant miner)
+async function loadNetworkHealth() {
+  const banner = document.getElementById("network-health");
+  if (!banner) return;
+  try {
+    const response = await fetch(`${API_BASE}/api/network-health`);
+    if (!response.ok) return;
+    const data = await response.json();
+    const warnings = data.warnings || [];
+
+    if (warnings.length === 0) {
+      banner.hidden = true;
+      return;
+    }
+    const isWarning = warnings.some((w) => w.level === "warning");
+    banner.className = `network-health ${isWarning ? "level-warning" : "level-notice"}`;
+    banner.innerHTML = warnings
+      .map(
+        (w) =>
+          `<p><i class="fa-solid ${w.level === "warning" ? "fa-triangle-exclamation" : "fa-circle-info"}" aria-hidden="true"></i>${escapeHtml(w.message)}${w.link ? ` <a href="${escapeHtml(w.link.url)}">${escapeHtml(w.link.text)} →</a>` : ""}</p>`,
+      )
+      .join("");
+    banner.hidden = false;
+  } catch (error) {
+    // Keep the last state if the request fails.
+    console.error("Error loading network health:", error);
   }
 }
 
@@ -1458,7 +1489,8 @@ function formatDifficulty(difficulty) {
   if (difficulty < 1000) return difficulty.toFixed(2);
   if (difficulty < 1000000) return `${(difficulty / 1000).toFixed(2)}K`;
   if (difficulty < 1000000000) return `${(difficulty / 1000000).toFixed(2)}M`;
-  return `${(difficulty / 1000000000).toFixed(2)}B`;
+  if (difficulty < 1000000000000) return `${(difficulty / 1000000000).toFixed(2)}G`;
+  return `${(difficulty / 1000000000000).toFixed(2)}T`;
 }
 
 function decodeCoinbase(hexString) {
