@@ -1383,6 +1383,45 @@ async function calculateHolders() {
   }
 }
 
+// Last non-empty rate in Live Coin Watch's history for S256, or null.
+// The history is bucketed by the size of the window, so a long window returns
+// older, coarser points: start with a short window (the newest point matches
+// the price Live Coin Watch shows) and widen it only while nothing is found.
+async function fetchLastTradedPrice(apiKey) {
+  const end = Date.now();
+  for (const days of [14, 30, 90, 180, 365]) {
+    try {
+      const response = await axios.post(
+        "https://api.livecoinwatch.com/coins/single/history",
+        {
+          currency: "USD",
+          code: "S256",
+          start: end - days * 24 * 60 * 60 * 1000,
+          end,
+          meta: false,
+        },
+        {
+          headers: { "content-type": "application/json", "x-api-key": apiKey },
+          timeout: 5000,
+        },
+      );
+      const history = Array.isArray(response.data?.history)
+        ? response.data.history
+        : [];
+      for (let i = history.length - 1; i >= 0; i--) {
+        const point = history[i];
+        if (point && point.rate > 0 && Number.isFinite(point.date)) {
+          return { rate: point.rate, date: point.date };
+        }
+      }
+    } catch (error) {
+      console.error("Error getting last traded price:", error.message);
+      return null;
+    }
+  }
+  return null;
+}
+
 // Get S256 price from Live Coin Watch
 app.get("/api/price", async (req, res) => {
   try {
@@ -1425,6 +1464,17 @@ app.get("/api/price", async (req, res) => {
       cap: priceData.cap,
       liquidity: priceData.liquidity,
     };
+
+    // While no market trades S256, Live Coin Watch returns rate: null, but its
+    // site still shows the last traded price. Its history keeps that price, so
+    // fall back to it and say when it was last traded (lastTraded, in ms).
+    if (!(customPriceData.price > 0)) {
+      const last = await fetchLastTradedPrice(LCW_API_KEY);
+      if (last) {
+        customPriceData.price = last.rate;
+        customPriceData.lastTraded = last.date;
+      }
+    }
 
     // Update cache
     priceCache = {
