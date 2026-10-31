@@ -580,7 +580,7 @@
             <span class="endpoint-path">/api/price</span>
           </div>
           <div class="endpoint-description">
-            Returns current S256 price data, volume, and market cap from Live Coin Watch. Data is cached for 5 minutes.
+            Returns current S256 price data, volume, and market cap from Live Coin Watch. <code>change24h</code> is the 24h price change in percent, or <code>null</code> when Live Coin Watch has none. While no market trades S256, <code>price</code> is the last traded price, <code>lastTraded</code> is its time in milliseconds and <code>change24h</code> is <code>null</code>. Data is cached for 5 minutes.
           </div>
           <div class="code-header">Example Request:</div>
           <div class="code-block">
@@ -593,7 +593,8 @@
   "price": 0.00123456,
   "volume": 5432.10,
   "cap": 123456.78,
-  "liquidity": 987.65
+  "liquidity": 987.65,
+  "change24h": -2.35
 }</pre>
           </div>
           <div class="endpoint-info" style="margin-top: 1rem; font-size: 0.9rem; color: #888;">

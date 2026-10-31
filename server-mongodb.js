@@ -1463,6 +1463,11 @@ app.get("/api/price", async (req, res) => {
       volume: priceData.volume,
       cap: priceData.cap,
       liquidity: priceData.liquidity,
+      // 24h change in percent. Live Coin Watch gives delta.day as the ratio to
+      // the price 24h ago, and null while no market trades S256.
+      change24h: Number.isFinite(priceData.delta?.day)
+        ? (priceData.delta.day - 1) * 100
+        : null,
     };
 
     // While no market trades S256, Live Coin Watch returns rate: null, but its
