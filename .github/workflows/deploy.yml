@@ -32,22 +32,24 @@ jobs:
             --exclude='*.txt'
             --exclude='*.md'
           path: ./
-          remote_path: /home/janos/explorer
+          remote_path: /
           remote_host: ${{ secrets.VPS_IP }}
           remote_user: ${{ secrets.VPS_USER }}
           remote_key: ${{ secrets.VPS_SSH_KEY }}
           remote_port: ${{ secrets.VPS_PORT }}
 
-      - name: Restart PM2 Processes
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.VPS_IP }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          script: |
-            cd /home/janos/explorer
-            # Install any new dependencies added to package.json
-            npm install --production
-            # Zero-downtime reload for the Explorer API and Sync processes
-            pm2 startOrReload ecosystem.config.js --update-env
+      # The deploy key on the VPS is restricted to rsync inside /home/janos/explorer
+      # and this one reload (see ~/bin/deploy-explorer); it gives no shell. The
+      # server's host key is pinned here, so nothing is trusted on first use.
+      - name: Reload explorer
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_IP: ${{ secrets.VPS_IP }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "[$VPS_IP]:$VPS_PORT ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII/OT4+sIqEJ+rEWj/uNA781YNu7KbUowke84AuagHto" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -p "$VPS_PORT" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_IP" reload-explorer
