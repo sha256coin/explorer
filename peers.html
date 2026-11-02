@@ -64,7 +64,7 @@
         background: var(--card-bg);
         border: 1px solid var(--border);
         border-radius: 12px;
-        overflow: hidden;
+        overflow-x: auto;
         box-shadow: var(--shadow);
       }
 
@@ -194,13 +194,45 @@
           font-size: 0.85rem;
         }
 
-        .peers-table th,
-        .peers-table td {
-          padding: 0.75rem 0.5rem;
+        /* One card per peer, a labelled line per field, so nothing is cut off */
+        .peers-table thead {
+          display: none;
         }
 
-        .hide-mobile {
-          display: none;
+        .peers-table,
+        .peers-table tbody,
+        .peers-table tr,
+        .peers-table td {
+          display: block;
+          width: 100%;
+        }
+
+        .peers-table tbody tr {
+          padding: 0.75rem 1rem;
+        }
+
+        .peers-table td {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.3rem 0;
+          white-space: normal;
+          text-align: right;
+        }
+
+        .peers-table td::before {
+          content: attr(data-label);
+          margin-right: auto;
+          color: var(--text-light);
+          font-weight: 600;
+          text-align: left;
+          flex-shrink: 0;
+        }
+
+        .peer-addr,
+        .peer-version {
+          white-space: normal;
+          word-break: break-all;
         }
       }
     </style>
@@ -499,22 +531,22 @@
                   <th>Country</th>
                   <th>Address</th>
                   <th>User Agent</th>
-                  <th class="hide-mobile">Direction</th>
-                  <th class="hide-mobile">Connection Time</th>
-                  <th class="hide-mobile">Ping (ms)</th>
+                  <th>Direction</th>
+                  <th>Connection Time</th>
+                  <th>Ping (ms)</th>
                   <th>Version</th>
                 </tr>
               </thead>
               <tbody>
                 ${peers.map(peer => `
                   <tr>
-                    <td><span class="country-flag">${getCountryFlag(peer.countryCode)}</span> <span style="color: var(--text-light); font-size: 0.85rem;">${peer.countryCode || '??'}</span></td>
-                    <td><span class="peer-addr">${peer.addr || 'Unknown'}</span></td>
-                    <td><span class="peer-version">${truncateUserAgent(peer.subver || 'Unknown')}</span></td>
-                    <td class="hide-mobile"><span class="peer-badge ${peer.inbound ? 'badge-inbound' : 'badge-outbound'}">${peer.inbound ? 'Inbound' : 'Outbound'}</span></td>
-                    <td class="hide-mobile">${formatConnectionTime(peer.conntime)}</td>
-                    <td class="hide-mobile">${peer.pingtime ? (peer.pingtime * 1000).toFixed(0) : 'N/A'}</td>
-                    <td>${peer.version || 'N/A'}</td>
+                    <td data-label="Country"><span class="country-flag">${getCountryFlag(peer.countryCode)}</span> <span style="color: var(--text-light); font-size: 0.85rem;">${peer.countryCode || '??'}</span></td>
+                    <td data-label="Address"><span class="peer-addr">${peer.addr || 'Unknown'}</span></td>
+                    <td data-label="User Agent"><span class="peer-version">${truncateUserAgent(peer.subver || 'Unknown')}</span></td>
+                    <td data-label="Direction"><span class="peer-badge ${peer.inbound ? 'badge-inbound' : 'badge-outbound'}">${peer.inbound ? 'Inbound' : 'Outbound'}</span></td>
+                    <td data-label="Connected">${formatConnectionTime(peer.conntime)}</td>
+                    <td data-label="Ping (ms)">${peer.pingtime ? (peer.pingtime * 1000).toFixed(0) : 'N/A'}</td>
+                    <td data-label="Version">${peer.version || 'N/A'}</td>
                   </tr>
                 `).join('')}
               </tbody>
