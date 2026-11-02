@@ -122,6 +122,17 @@
         border: 2px solid var(--primary);
       }
 
+      .legend-dot-group {
+        width: 18px;
+        height: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 10px;
+        font-weight: 700;
+      }
+
       #node-map {
         height: 600px;
         width: 100%;
@@ -135,6 +146,13 @@
         border: 3px solid var(--primary);
         border-radius: 50%;
         box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1;
       }
 
       /* Leaflet popup custom styling */
@@ -198,6 +216,17 @@
         padding: 0.25rem 0.5rem;
         background: rgba(0, 0, 0, 0.1);
         border-radius: 4px;
+        word-break: break-all;
+      }
+
+      .popup-peer-addr {
+        color: var(--primary);
+        font-weight: 600;
+      }
+
+      .popup-body-scroll {
+        max-height: 320px;
+        overflow-y: auto;
       }
 
       .loading-overlay {
@@ -336,7 +365,8 @@
               <span>Active Node</span>
             </div>
             <div class="legend-item">
-              <span style="font-size: 0.85rem;">● Larger = More Peers</span>
+              <div class="legend-dot legend-dot-group">2</div>
+              <span>Nodes at one location</span>
             </div>
           </div>
         </div>
@@ -553,16 +583,79 @@
         }).addTo(map);
       }
 
+      function peerCountry(peer) {
+        return countryNames[peer.countryCode] || peer.countryCode || 'Unknown';
+      }
+
+      function peerPing(peer) {
+        return peer.pingtime ? `${(peer.pingtime * 1000).toFixed(0)} ms` : 'N/A';
+      }
+
+      function peerNetwork(peer) {
+        return peer.network === 'ipv6' ? 'IPv6' : 'IPv4';
+      }
+
+      // "/SHA256Coin:3.0.1/" -> "3.0.1"
+      function peerVersion(peer) {
+        const match = (peer.subver || '').match(/:([\d.]+)/);
+        return match ? match[1] : 'N/A';
+      }
+
+      function popupStat(label, value) {
+        return `
+              <div class="popup-stat">
+                <span class="popup-stat-label">${label}</span>
+                <span class="popup-stat-value">${value}</span>
+              </div>`;
+      }
+
+      // Popup for a location with one node
+      function peerPopup(peer) {
+        return `
+            <div class="popup-header">
+              ${peer.addr || 'Unknown'}
+            </div>
+            <div class="popup-body">
+              ${popupStat('Country', peerCountry(peer))}
+              ${popupStat('Ping', peerPing(peer))}
+              ${popupStat('Version', peer.subver || 'N/A')}
+              ${popupStat('Direction', peer.inbound ? 'Inbound' : 'Outbound')}
+              ${popupStat('Network', peerNetwork(peer))}
+            </div>
+          `;
+      }
+
+      // Popup for a location with several nodes: one line per node
+      function groupPopup(group) {
+        const countries = [...new Set(group.map(peerCountry))].join(', ');
+        return `
+            <div class="popup-header">
+              ${group.length} nodes
+            </div>
+            <div class="popup-body popup-body-scroll">
+              ${popupStat('Country', countries)}
+              <div class="popup-peers-list">
+                ${group.map(peer => `
+                  <div class="popup-peer">
+                    <div class="popup-peer-addr">${peer.addr || 'Unknown'}</div>
+                    <div>${peerVersion(peer)} · ${peer.inbound ? 'Inbound' : 'Outbound'} · ${peerNetwork(peer)} · ${peerPing(peer)}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+      }
+
       // Add peer markers to map
       function addPeerMarkers(peers) {
         // Clear existing markers
         markers.forEach(marker => map.removeLayer(marker));
         markers = [];
 
-        // Track coordinate usage to offset duplicates
-        const coordCounts = {};
+        // Group peers that share a location, so nodes in the same city are
+        // one marker with a count instead of dots stacked on top of each other
+        const groups = new Map();
 
-        // Add individual marker for each peer
         peers.forEach(peer => {
           // Get coordinates for this peer
           let coords = null;
@@ -577,66 +670,28 @@
 
           if (!coords) return; // Skip if no coordinates available
 
-          // Create coordinate key for tracking duplicates
           const coordKey = `${coords[0].toFixed(4)},${coords[1].toFixed(4)}`;
+          if (!groups.has(coordKey)) groups.set(coordKey, { coords, peers: [] });
+          groups.get(coordKey).peers.push(peer);
+        });
 
-          // Offset duplicate coordinates slightly in a circle pattern
-          if (coordCounts[coordKey]) {
-            const index = coordCounts[coordKey];
-            const angle = (index * 360 / 8) * (Math.PI / 180); // Spread in circle
-            const offset = 0.05; // Small offset in degrees (~5km)
-            coords = [
-              coords[0] + (offset * Math.cos(angle)),
-              coords[1] + (offset * Math.sin(angle))
-            ];
-            coordCounts[coordKey]++;
-          } else {
-            coordCounts[coordKey] = 1;
-          }
+        groups.forEach(({ coords, peers: group }) => {
+          const count = group.length;
 
-          // Determine IPv4 or IPv6
-          const ipType = peer.network === 'ipv6' ? 'IPv6' : 'IPv4';
-
-          // Plain dot; the details are in the popup on click
-          const markerSize = 16;
+          // Plain dot, with the node count inside for a group; the details
+          // are in the popup on click
+          const markerSize = count > 1 ? 24 : 16;
           const marker = L.marker(coords, {
             icon: L.divIcon({
               className: 'custom-div-icon',
-              html: `<div class="custom-marker" style="width: ${markerSize}px; height: ${markerSize}px;"></div>`,
+              html: `<div class="custom-marker" style="width: ${markerSize}px; height: ${markerSize}px;">${count > 1 ? count : ''}</div>`,
               iconSize: [markerSize, markerSize],
               iconAnchor: [markerSize / 2, markerSize / 2]
-            })
+            }),
+            title: count > 1 ? `${count} nodes` : ''
           });
 
-          // Create popup content
-          const ping = peer.pingtime ? (peer.pingtime * 1000).toFixed(0) : 'N/A';
-          const popupContent = `
-            <div class="popup-header">
-              ${peer.addr || 'Unknown'}
-            </div>
-            <div class="popup-body">
-              <div class="popup-stat">
-                <span class="popup-stat-label">Country</span>
-                <span class="popup-stat-value">${countryNames[peer.countryCode] || peer.countryCode || 'Unknown'}</span>
-              </div>
-              <div class="popup-stat">
-                <span class="popup-stat-label">Ping</span>
-                <span class="popup-stat-value">${ping} ms</span>
-              </div>
-              <div class="popup-stat">
-                <span class="popup-stat-label">Version</span>
-                <span class="popup-stat-value">${peer.subver || 'N/A'}</span>
-              </div>
-              <div class="popup-stat">
-                <span class="popup-stat-label">Direction</span>
-                <span class="popup-stat-value">${peer.inbound ? 'Inbound' : 'Outbound'}</span>
-              </div>
-              <div class="popup-stat">
-                <span class="popup-stat-label">Network</span>
-                <span class="popup-stat-value">${ipType}</span>
-              </div>
-            </div>
-          `;
+          const popupContent = count > 1 ? groupPopup(group) : peerPopup(group[0]);
 
           marker.bindPopup(popupContent, {
             maxWidth: 300,
