@@ -540,7 +540,7 @@
               <tbody>
                 ${peers.map(peer => `
                   <tr>
-                    <td data-label="Country"><span class="country-flag">${getCountryFlag(peer.countryCode)}</span> <span style="color: var(--text-light); font-size: 0.85rem;">${peer.countryCode || '??'}</span></td>
+                    <td data-label="Country"><span title="${countryName(peer.countryCode)}"><span class="country-flag">${getCountryFlag(peer.countryCode)}</span> <span style="color: var(--text-light); font-size: 0.85rem;">${peer.countryCode || '??'}</span></span></td>
                     <td data-label="Address"><span class="peer-addr">${peer.addr || 'Unknown'}</span></td>
                     <td data-label="User Agent"><span class="peer-version">${truncateUserAgent(peer.subver || 'Unknown')}</span></td>
                     <td data-label="Direction"><span class="peer-badge ${peer.inbound ? 'badge-inbound' : 'badge-outbound'}">${peer.inbound ? 'Inbound' : 'Outbound'}</span></td>
@@ -562,6 +562,20 @@
 
         const code = countryCode.toLowerCase();
         return `<span class="fi fi-${code} country-flag"></span>`;
+      }
+
+      // Full country name for the flag tooltip, from the browser's own list
+      const regionNames = typeof Intl.DisplayNames === 'function'
+        ? new Intl.DisplayNames(['en'], { type: 'region' })
+        : null;
+
+      function countryName(countryCode) {
+        if (!countryCode) return 'Unknown location';
+        try {
+          return regionNames?.of(countryCode.toUpperCase()) || countryCode;
+        } catch (e) {
+          return countryCode;
+        }
       }
 
       function truncateUserAgent(agent) {
