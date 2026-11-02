@@ -119,7 +119,7 @@
         height: 12px;
         border-radius: 50%;
         background: linear-gradient(100deg, #2a3038 0%, #6b7482 45%, #2a3038 100%);
-        box-shadow: 0 0 10px rgba(245, 165, 36, 0.6);
+        border: 2px solid var(--primary);
       }
 
       #node-map {
@@ -128,24 +128,13 @@
         background: #0b0f14;
       }
 
-      /* Custom Leaflet marker styles */
+      /* Custom Leaflet marker styles: no glow or animation, so many
+         markers stay cheap to draw on slower machines */
       .custom-marker {
         background: linear-gradient(100deg, #2a3038 0%, #6b7482 45%, #2a3038 100%);
-        border: 3px solid rgba(255, 255, 255, 0.3);
+        border: 3px solid var(--primary);
         border-radius: 50%;
-        box-shadow: 0 0 15px rgba(245, 165, 36, 0.6), 0 0 30px rgba(201, 208, 218, 0.4);
-        animation: pulse 2s infinite;
-      }
-
-      @keyframes pulse {
-        0%, 100% {
-          box-shadow: 0 0 15px rgba(245, 165, 36, 0.6), 0 0 30px rgba(201, 208, 218, 0.4);
-          transform: scale(1);
-        }
-        50% {
-          box-shadow: 0 0 25px rgba(245, 165, 36, 0.8), 0 0 50px rgba(201, 208, 218, 0.6);
-          transform: scale(1.1);
-        }
+        box-sizing: border-box;
       }
 
       /* Leaflet popup custom styling */
@@ -605,31 +594,16 @@
             coordCounts[coordKey] = 1;
           }
 
-          // Extract version from subver (e.g., "/S256:1.0.5/" -> "1.0.5")
-          let version = 'N/A';
-          if (peer.subver) {
-            const versionMatch = peer.subver.match(/:([\d.]+)/);
-            if (versionMatch) version = versionMatch[1];
-          }
-
           // Determine IPv4 or IPv6
           const ipType = peer.network === 'ipv6' ? 'IPv6' : 'IPv4';
 
-          // Create label
-          const label = `[${version}:${ipType}]`;
-
-          // Create custom marker with label
-          const markerSize = 20;
+          // Plain dot; the details are in the popup on click
+          const markerSize = 16;
           const marker = L.marker(coords, {
             icon: L.divIcon({
               className: 'custom-div-icon',
-              html: `
-                <div style="display: flex; align-items: center; white-space: nowrap;">
-                  <div class="custom-marker" style="width: ${markerSize}px; height: ${markerSize}px;"></div>
-                  <span style="margin-left: 8px; font-size: 11px; font-weight: 600; color: var(--primary); background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${label}</span>
-                </div>
-              `,
-              iconSize: [markerSize + 100, markerSize],
+              html: `<div class="custom-marker" style="width: ${markerSize}px; height: ${markerSize}px;"></div>`,
+              iconSize: [markerSize, markerSize],
               iconAnchor: [markerSize / 2, markerSize / 2]
             })
           });
@@ -656,6 +630,10 @@
               <div class="popup-stat">
                 <span class="popup-stat-label">Direction</span>
                 <span class="popup-stat-value">${peer.inbound ? 'Inbound' : 'Outbound'}</span>
+              </div>
+              <div class="popup-stat">
+                <span class="popup-stat-label">Network</span>
+                <span class="popup-stat-value">${ipType}</span>
               </div>
             </div>
           `;
