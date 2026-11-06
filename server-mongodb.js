@@ -2070,6 +2070,31 @@ app.get("/ext/gettx/:txid", async (req, res) => {
       addresses: vout.scriptPubKey?.address || "Unknown",
     }));
 
+    // The stored confirmations is set once when the tx is indexed and never
+    // updated, and time/blocktime are often missing. Derive both live: the
+    // confirmations from the latest chain height, the time from the block.
+    let confirmations = 0;
+    let txTime = transaction.time || transaction.blocktime;
+    if (transaction.blockheight !== undefined && transaction.blockheight !== null) {
+      const [latestStats, block] = await Promise.all([
+        Stats.findOne().sort({ timestamp: -1 }).select("blocks").lean(),
+        txTime
+          ? null
+          : Block.findOne({ height: transaction.blockheight })
+              .select("time")
+              .lean(),
+      ]);
+      if (latestStats && typeof latestStats.blocks === "number") {
+        confirmations = Math.max(
+          0,
+          latestStats.blocks - transaction.blockheight + 1,
+        );
+      } else {
+        confirmations = transaction.confirmations || 1;
+      }
+      if (!txTime && block) txTime = block.time;
+    }
+
     // Format transaction data for wallet modal
     const formattedTx = {
       txid: transaction.txid,
@@ -2078,8 +2103,8 @@ app.get("/ext/gettx/:txid", async (req, res) => {
       vout: formattedVout,
       blockhash: transaction.blockhash,
       blockheight: transaction.blockheight,
-      confirmations: transaction.confirmations,
-      time: transaction.time || transaction.blocktime,
+      confirmations,
+      time: txTime,
     };
 
     // Wrap in 'tx' object as expected by wallet modal
