@@ -156,7 +156,6 @@ app.get("/api/blockchain-info", async (req, res) => {
       chainwork: info.chainwork,
       connections: networkInfo.connections,
       networkhashps: miningInfo.networkhashps,
-      nextDifficulty: miningInfo.next ? miningInfo.next.difficulty : null,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -261,7 +261,7 @@ async function loadBlockchainInfo() {
     );
     const nextEl = document.getElementById("nextDifficulty");
     if (nextEl && data.nextDifficulty && data.difficulty) {
-      const pct = (data.nextDifficulty / data.difficulty - 1) * 100;
+      const pct = (data.nextDifficulty / (data.nextBase || data.difficulty) - 1) * 100;
       const arrow = pct > 0 ? "▲" : pct < 0 ? "▼" : "";
       nextEl.textContent = `Next: ${formatDifficulty(data.nextDifficulty)} ${arrow} ${Math.abs(pct).toFixed(2)}%`;
       nextEl.className = "stat-sub " + (pct > 0 ? "up" : pct < 0 ? "down" : "");

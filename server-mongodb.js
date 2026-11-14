@@ -239,12 +239,28 @@ app.get("/api/blockchain-info", async (req, res) => {
         .json({ error: "Sync service not running or no data available" });
     }
 
+    // Next-block difficulty straight from the node (LWMA retargets every block).
+    // Optional: if the node is unreachable the rest of the response still works.
+    let nextDifficulty = null;
+    let nextBase = null;
+    try {
+      const mining = await rpcCall("getmininginfo");
+      if (mining && mining.next) {
+        nextDifficulty = mining.next.difficulty;
+        nextBase = mining.difficulty;
+      }
+    } catch (e) {
+      /* ignore */
+    }
+
     res.json({
       blocks: latestStats.blocks,
       difficulty: latestStats.difficulty,
       chainwork: latestStats.chainwork,
       connections: latestStats.connections,
       networkhashps: latestStats.networkhashps,
+      nextDifficulty,
+      nextBase,
     });
   } catch (error) {
     console.error("Error getting blockchain info:", error);

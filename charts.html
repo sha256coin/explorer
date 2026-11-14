@@ -697,7 +697,7 @@
           const r = await fetch(`${API_BASE}/api/blockchain-info`);
           const info = await r.json();
           if (!info.nextDifficulty || !info.difficulty) return;
-          const pct = (info.nextDifficulty / info.difficulty - 1) * 100;
+          const pct = (info.nextDifficulty / (info.nextBase || info.difficulty) - 1) * 100;
           const color = pct > 0 ? '#e5534b' : pct < 0 ? '#3fb950' : '#f5a524';
           const n = data.length;
           const pad = new Array(n).fill(null);
