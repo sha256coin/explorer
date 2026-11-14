@@ -430,6 +430,15 @@ a { color: var(--primary); }
   text-shadow: 0 0 18px rgba(245, 165, 36, 0.18);
 }
 
+.stat-sub {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-light);
+  margin-top: 0.15rem;
+}
+.stat-sub.up { color: #e5534b; }
+.stat-sub.down { color: #3fb950; }
+
 /* ---------- section headings ---------- */
 
 .main-content h2,

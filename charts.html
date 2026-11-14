@@ -626,6 +626,7 @@
           charts[metric].data.datasets[0].backgroundColor = `${colors.primary}20`;
           updateChartTheme(charts[metric]);
         } else {
+          if (metric === 'difficulty') chartConfig.plugins = [nextLabelPlugin];
           charts[metric] = new Chart(ctx, chartConfig);
         }
       }
@@ -656,6 +657,75 @@
         return bytes.toFixed(0) + ' B';
       }
 
+      // Next-block difficulty: LWMA retargets every block and the next value is
+      // already known from the node, so draw it as a dashed projection.
+      const nextLabelPlugin = {
+        id: 'nextLabel',
+        afterDatasetsDraw(chart) {
+          const info = chart.$next;
+          const ds = chart.data.datasets[1];
+          if (!info || !ds) return;
+          const el = chart.getDatasetMeta(1).data[info.idx];
+          if (!el) return;
+          const { ctx, chartArea } = chart;
+          const text = `Next ${formatDifficulty(info.next)} ${info.pct > 0 ? '▲' : info.pct < 0 ? '▼' : ''} ${Math.abs(info.pct).toFixed(2)}%`;
+          ctx.save();
+          ctx.font = '600 12px ui-monospace, monospace';
+          const w = ctx.measureText(text).width + 16;
+          let x = el.x - w / 2;
+          if (x + w > chartArea.right) x = chartArea.right - w;
+          if (x < chartArea.left) x = chartArea.left;
+          const y = el.y - 40;
+          ctx.fillStyle = 'rgba(0,0,0,0.75)';
+          ctx.strokeStyle = info.color;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(x, y, w, 24, 6);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = info.color;
+          ctx.textBaseline = 'middle';
+          ctx.fillText(text, x + 8, y + 12);
+          ctx.restore();
+        }
+      };
+
+      async function addNextDifficulty(data) {
+        const chart = charts.difficulty;
+        if (!chart || !data || !data.length) return;
+        try {
+          const r = await fetch(`${API_BASE}/api/blockchain-info`);
+          const info = await r.json();
+          if (!info.nextDifficulty || !info.difficulty) return;
+          const pct = (info.nextDifficulty / info.difficulty - 1) * 100;
+          const color = pct > 0 ? '#e5534b' : pct < 0 ? '#3fb950' : '#f5a524';
+          const n = data.length;
+          const pad = new Array(n).fill(null);
+          chart.data.labels = [...chart.data.labels.slice(0, n), 'Now', 'Next block', ...new Array(Math.max(4, Math.round(n * 0.07))).fill('')];
+          chart.data.datasets[0].data = [...data.map(d => d.value), info.difficulty];
+          chart.data.datasets[1] = {
+            label: 'Next block',
+            data: [...pad, info.difficulty, info.nextDifficulty],
+            borderColor: color,
+            backgroundColor: color,
+            borderWidth: 3,
+            borderDash: [6, 5],
+            fill: false,
+            tension: 0,
+            pointRadius: (c) => (c.dataIndex === n + 1 ? 7 : 0),
+            pointHoverRadius: (c) => (c.dataIndex === n + 1 ? 9 : 0),
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+          };
+          chart.options.scales.y.beginAtZero = false;
+          chart.options.scales.y.grace = '18%';
+          chart.$next = { next: info.nextDifficulty, pct, color, idx: n + 1 };
+          chart.update();
+        } catch (e) {
+          console.error('Next difficulty unavailable:', e);
+        }
+      }
+
       // Load all charts
       async function loadAllCharts() {
         // Hashrate
@@ -665,6 +735,7 @@
         // Difficulty
         const difficultyData = await loadChartData('difficulty');
         createOrUpdateChart('difficulty-chart', 'difficulty', 'Difficulty', difficultyData, formatDifficulty);
+        await addNextDifficulty(difficultyData);
 
         // Transactions
         const transactionsData = await loadChartData('transactions');
